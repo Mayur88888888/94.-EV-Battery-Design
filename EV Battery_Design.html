@@ -1,0 +1,2244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Battery Engineering Workbench — v1.4 (P0–P5 + Visuals)</title>
+<style>
+:root{
+  --bg:#f5f6f8; --panel:#fff; --border:#d8dde3; --border-strong:#b8c0c9;
+  --text:#1c2530; --text-muted:#5a6673; --text-faint:#8a95a1;
+  --accent:#0d5c8f; --accent-hover:#0a4a73; --accent-soft:#e6f0f7;
+  --ok:#1e7d3c; --ok-soft:#e6f4ea; --warn:#9a6700; --warn-soft:#fff8e5;
+  --err:#b42318; --err-soft:#fdecea;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --radius:4px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{font-family:var(--font);font-size:13px;color:var(--text);background:var(--bg);line-height:1.45}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:inherit;color:var(--text)}
+input[type=number]{font-family:var(--mono);text-align:right}
+input,select,textarea{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:5px 8px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+input.soft-invalid{border-color:#e6c46a;background:#fffdf5}
+
+#app{display:flex;height:100vh;overflow:hidden}
+#sidebar{width:250px;flex:0 0 250px;background:#fff;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#sidebar .brand{padding:12px 14px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#0d5c8f,#0a4a73);color:#fff}
+#sidebar .brand h1{margin:0;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+#sidebar .brand p{margin:2px 0 0;font-size:10.5px;opacity:.85}
+#nav{flex:1;overflow-y:auto;padding:6px 0}
+.nav-item{display:flex;align-items:flex-start;gap:8px;padding:7px 14px;cursor:pointer;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{background:var(--accent-soft)}
+.nav-item.active{background:var(--accent-soft);border-left-color:var(--accent)}
+.nav-item .num{font-family:var(--mono);font-size:10px;color:var(--text-faint);min-width:18px;padding-top:2px}
+.nav-item .label{flex:1}
+.nav-item .title{font-weight:600;font-size:12px}
+.nav-item .sub{font-size:10.5px;color:var(--text-muted);margin-top:1px}
+.nav-item .status{width:8px;height:8px;border-radius:50%;margin-top:6px;background:#c9d1d9}
+.nav-item .status.done{background:var(--ok)}
+.nav-item .status.partial{background:#d4a017}
+#sidebar .foot{padding:8px 14px;border-top:1px solid var(--border);font-size:10.5px;color:var(--text-faint);display:flex;align-items:center;gap:6px}
+
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#topbar{background:#fff;border-bottom:1px solid var(--border);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#topbar .crumb{font-size:12px;color:var(--text-muted)}
+#topbar .crumb b{color:var(--text)}
+#topbar .spacer{flex:1}
+#topbar .tag{font-size:10.5px;padding:2px 8px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-weight:600}
+#topbar .tag.ev{background:#e6f0f7;color:#0d5c8f}
+#topbar .tag.bess{background:#eaf4e9;color:#1e7d3c}
+
+#content{flex:1;overflow-y:auto;padding:16px 20px 40px}
+#statusbar{background:#fff;border-top:1px solid var(--border);padding:5px 16px;font-size:11px;color:var(--text-muted);display:flex;gap:14px;align-items:center;min-height:26px}
+#statusbar .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;margin-right:5px}
+
+.view{max-width:1240px;margin:0 auto}
+.page-title{margin:0 0 4px;font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+.page-sub{margin:0 0 16px;color:var(--text-muted);font-size:12.5px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+.card h3{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.grid{display:grid;gap:12px}
+.grid.cols-2{grid-template-columns:1fr 1fr}
+.grid.cols-3{grid-template-columns:1fr 1fr 1fr}
+.grid.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:820px){.grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;color:var(--text-muted);font-weight:500}
+
+.btn{border:1px solid var(--border-strong);background:#fff;color:var(--text);padding:6px 12px;border-radius:var(--radius);font-size:12px;font-weight:500}
+.btn:hover{background:#f0f3f6}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-hover)}
+.btn.danger{color:var(--err);border-color:#e0b4b0}
+.btn.danger:hover{background:var(--err-soft)}
+.btn.sm{padding:3px 8px;font-size:11px}
+
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+table th{text-align:left;padding:6px 8px;background:#f0f3f6;border-bottom:1px solid var(--border);font-weight:600;font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+table td{padding:5px 8px;border-bottom:1px solid #eef1f4;vertical-align:middle}
+table tr:hover td{background:#fafbfc}
+table td.num{font-family:var(--mono);text-align:right}
+table td input{padding:3px 6px;font-size:11.5px}
+
+.chip{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+.chip.ev{background:#e6f0f7;color:#0d5c8f}
+.chip.bess{background:#eaf4e9;color:#1e7d3c}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.err{background:var(--err-soft);color:var(--err)}
+.chip.muted{background:#eef1f4;color:var(--text-muted)}
+
+.alert{padding:9px 12px;border-radius:var(--radius);font-size:11.5px;margin-bottom:10px;border:1px solid}
+.alert.ok{background:var(--ok-soft);border-color:#b8dcc4;color:#145a2c}
+.alert.warn{background:var(--warn-soft);border-color:#f0dca0;color:#7a5200}
+.alert.err{background:var(--err-soft);border-color:#f0b8b0;color:#8c1c10}
+.alert.info{background:var(--accent-soft);border-color:#b8d0e3;color:#0a4a73}
+
+.eq{background:#f8f9fb;border:1px solid var(--border);border-left:3px solid var(--accent);padding:8px 12px;border-radius:4px;font-family:var(--mono);font-size:11.5px;margin:6px 0;overflow-x:auto;color:#2c3e50}
+.eq .lbl{font-family:var(--font);color:var(--text-muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px}
+.kv{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:12px;margin:6px 0}
+.kv .k{color:var(--text-muted)}
+.kv .v{font-family:var(--mono);font-weight:600;text-align:right}
+.kv .v.ok{color:var(--ok)}.kv .v.err{color:var(--err)}.kv .v.warn{color:var(--warn)}
+
+.empty-state{padding:32px;text-align:center;color:var(--text-muted)}
+.empty-state h3{color:var(--text);margin-bottom:6px}
+
+.modal-bg{position:fixed;inset:0;background:rgba(20,30,40,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:6px;max-width:720px;width:100%;max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal header h3{margin:0;font-size:14px}
+.modal .body{padding:16px;overflow-y:auto}
+.modal footer{padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+.modal .x{background:none;border:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0 4px}
+
+.proj-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;background:#fff;transition:border-color .12s}
+.proj-row:hover{border-color:var(--border-strong);background:#fafbfc}
+.proj-row .info{flex:1;min-width:0}
+.proj-row .name{font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px}
+.proj-row .meta{font-size:11px;color:var(--text-muted);margin-top:2px}
+.proj-row .actions{display:flex;gap:6px}
+
+.diag-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eef1f4;font-size:12px}
+.diag-row .val{font-family:var(--mono);font-weight:600}
+
+.help-panel{font-size:11.5px;color:var(--text-muted);background:#f8f9fb;border-left:2px solid var(--border-strong);padding:8px 12px;border-radius:0 4px 4px 0;margin-bottom:12px}
+.help-panel b{color:var(--text)}
+
+.overflow-x{overflow-x:auto}
+.mono{font-family:var(--mono)}
+.muted{color:var(--text-muted)}
+.small{font-size:11px}
+.flex{display:flex;gap:8px;align-items:center}
+.flex.wrap{flex-wrap:wrap}
+.mt-12{margin-top:12px}
+
+.layout-wrap{display:grid;grid-template-columns:1fr 320px;gap:14px}
+@media(max-width:1000px){.layout-wrap{grid-template-columns:1fr}}
+.svg-box{background:linear-gradient(135deg,#fafbfc,#f0f3f6);border:1px solid var(--border);border-radius:4px;padding:8px;overflow:auto}
+.svg-box svg{display:block;margin:0 auto}
+.chart-box{background:#fff;border:1px solid var(--border);border-radius:4px;padding:10px}
+
+/* Dashboard hero with SVG illustration */
+.hero{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:center;padding:20px;border-radius:6px;background:linear-gradient(135deg,#0d5c8f 0%,#0a4a73 100%);color:#fff;margin-bottom:14px}
+@media(max-width:820px){.hero{grid-template-columns:1fr}}
+.hero h2{margin:0 0 6px;font-size:20px;font-weight:600}
+.hero p{margin:0 0 12px;font-size:12.5px;opacity:.9}
+.hero .hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.hero .hero-actions button{background:#fff;color:#0d5c8f;border:none;padding:8px 14px;border-radius:4px;font-weight:600;font-size:12px}
+.hero .hero-actions button.ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)}
+.hero svg{display:block;margin:0 auto}
+
+/* Dashboard stats row */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:820px){.stats-row{grid-template-columns:1fr 1fr}}
+.stat-tile{background:#fff;border:1px solid var(--border);border-radius:6px;padding:14px;display:flex;gap:12px;align-items:center}
+.stat-tile .icon{width:40px;height:40px;border-radius:8px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);flex-shrink:0}
+.stat-tile .info{flex:1;min-width:0}
+.stat-tile .num{font-size:20px;font-weight:600;font-family:var(--mono);line-height:1}
+.stat-tile .lbl{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;margin-top:2px}
+
+/* Pack 3D isometric */
+.iso-wrap{background:linear-gradient(135deg,#fafbfc,#eef1f4);border:1px solid var(--border);border-radius:4px;padding:16px;text-align:center;overflow:hidden}
+.iso-wrap svg{max-width:100%;height:auto}
+
+.bom-tree{font-family:var(--mono);font-size:11.5px}
+.bom-tree .row{display:grid;grid-template-columns:60px 1fr 80px 80px 80px 100px;gap:8px;padding:4px 0;border-bottom:1px solid #eef1f4;align-items:center}
+.bom-tree .row.head{font-family:var(--font);font-weight:600;color:var(--text-muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;background:#f0f3f6;padding:6px 8px;border-radius:3px}
+.bom-tree .row.lvl1{padding-left:0}
+.bom-tree .row.lvl2{padding-left:20px;background:#fafbfc}
+.bom-tree .row.total{font-weight:700;background:var(--accent-soft);padding:8px;border-radius:3px;margin-top:6px}
+
+.run-row{display:flex;gap:12px;align-items:center;padding:8px 10px;border:1px solid var(--border);border-radius:4px;margin-bottom:6px;background:#fff;font-size:11.5px}
+.run-row:hover{border-color:var(--border-strong)}
+.run-row .when{font-family:var(--mono);color:var(--text-muted);min-width:130px}
+.run-row .what{flex:1}
+.run-row .result{font-family:var(--mono);font-weight:600}
+
+.step-row{display:grid;grid-template-columns:30px 1fr 180px 100px;gap:8px;padding:6px 8px;border-bottom:1px solid #eef1f4;font-size:11.5px;align-items:center}
+.step-row.head{background:#f0f3f6;font-weight:600;color:var(--text-muted);font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
+
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.compare-grid .rev-card{background:#fafbfc;border:1px solid var(--border);border-radius:4px;padding:10px;font-size:11.5px}
+.compare-grid .rev-card h4{margin:0 0 6px;font-size:12px;color:var(--accent)}
+.diff-row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #eef1f4}
+.diff-row .k{color:var(--text-muted)}
+.diff-row .v{font-family:var(--mono);font-weight:600}
+.diff-row .v.changed{color:var(--accent)}
+
+/* Gauge */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center}
+.gauge-value{font-family:var(--mono);font-weight:700;font-size:16px}
+
+/* Overview visual card */
+.overview-card{background:#fff;border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:14px}
+.overview-card h3{margin:0 0 12px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.overview-visual{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:1000px){.overview-visual{grid-template-columns:1fr}}
+.visual-tile{background:#fafbfc;border:1px solid var(--border);border-radius:4px;padding:12px}
+
+/* Heatmap cells */
+.heat-cell{transition:all .12s}
+
+/* Icon helper */
+.icon{display:inline-block;vertical-align:middle;flex-shrink:0}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="brand">
+      <h1>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/></svg>
+        Battery Engineering Workbench
+      </h1>
+      <p>EV · BESS · v1.4 · P0–P5 + Visuals</p>
+    </div>
+    <nav id="nav"></nav>
+    <div class="foot">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/></svg>
+      100% offline · single file
+    </div>
+  </aside>
+  <div id="main">
+    <div id="topbar"></div>
+    <div id="content"></div>
+    <div id="statusbar"></div>
+  </div>
+</div>
+<div class="modal-bg" id="modalBg"><div class="modal" id="modal"></div></div>
+
+<script>
+'use strict';
+
+/* ============ DOM / utils ============ */
+function $(sel, root) { return (root || document).querySelector(sel); }
+function makeEl(tag, attrs) {
+  var e = document.createElement(tag);
+  if (attrs) {
+    for (var k in attrs) {
+      if (!Object.prototype.hasOwnProperty.call(attrs, k)) continue;
+      var v = attrs[k];
+      if (k === 'class') e.className = v;
+      else if (k === 'style') e.style.cssText = v;
+      else if (k.indexOf('on') === 0 && typeof v === 'function') e.addEventListener(k.slice(2), v);
+      else if (v !== null && v !== undefined && v !== false) e.setAttribute(k, v);
+    }
+  }
+  for (var i = 2; i < arguments.length; i++) {
+    var c = arguments[i];
+    if (c == null || c === false) continue;
+    if (Array.isArray(c)) {
+      for (var j = 0; j < c.length; j++) {
+        var cc = c[j];
+        if (cc == null) continue;
+        e.appendChild(typeof cc === 'string' || typeof cc === 'number' ? document.createTextNode(String(cc)) : cc);
+      }
+    } else {
+      e.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
+    }
+  }
+  return e;
+}
+function el(tag, attrs) {
+  var args = [tag, attrs];
+  for (var i = 2; i < arguments.length; i++) args.push(arguments[i]);
+  return makeEl.apply(null, args);
+}
+function num(v, d) { d = (d == null ? 2 : d); var n = Number(v); return isFinite(n) ? n.toLocaleString(undefined, {maximumFractionDigits: d, minimumFractionDigits: 0}) : '—'; }
+function fmt(v, unit, d) { var n = Number(v); return isFinite(n) ? num(n, d) + (unit ? ' ' + unit : '') : '—'; }
+function uid() { return 'id-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+function nowISO() { return new Date().toISOString(); }
+
+/* ============ SVG helper ============ */
+var SVG_NS = 'http://www.w3.org/2000/svg';
+function svg(tag, attrs) {
+  var e = document.createElementNS(SVG_NS, tag);
+  if (attrs) for (var k in attrs) if (Object.prototype.hasOwnProperty.call(attrs, k)) {
+    var v = attrs[k];
+    if (v !== null && v !== undefined) e.setAttribute(k, v);
+  }
+  for (var i = 2; i < arguments.length; i++) {
+    var c = arguments[i];
+    if (c == null) continue;
+    e.appendChild(typeof c === 'string' || typeof c === 'number' ? document.createTextNode(String(c)) : c);
+  }
+  return e;
+}
+function svgText(x, y, text, opts) {
+  opts = opts || {};
+  return svg('text', {
+    x: x, y: y,
+    'font-size': opts.size || '10',
+    'font-family': opts.mono ? 'monospace' : 'inherit',
+    'fill': opts.color || '#5a6673',
+    'text-anchor': opts.anchor || 'start',
+    'font-weight': opts.weight || 'normal'
+  }, String(text));
+}
+
+/* ============ Icons (inline SVG) ============ */
+var ICONS = {
+  battery: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M6 11v2"/><path d="M10 11v2"/></svg>',
+  ev: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14"/><path d="M5 17v-4l2-4h10l2 4v4"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>',
+  bess: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M6 10h2"/><path d="M10 10h2"/><path d="M14 10h2"/></svg>',
+  folder: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  thermo: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14V5a2 2 0 0 0-4 0v9a4 4 0 1 0 4 0z"/></svg>',
+  flow: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c3-4 6-4 9 0s6 4 9 0"/><path d="M3 17c3-4 6-4 9 0s6 4 9 0"/></svg>',
+  chip: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>',
+  sim: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>',
+  check: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  list: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+  factory: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l6 4V9l6 4V9l6 4v8z"/><path d="M7 21v-4h4v4"/></svg>',
+  report: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>',
+  diag: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m7.08 7.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m7.08-7.08l4.24-4.24"/></svg>',
+  layers: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>'
+};
+
+/* ============ Storage ============ */
+var DB_KEY = 'bew_projects_v4';
+var LIB_KEY = 'bew_library_v4';
+var APP_KEY = 'bew_app_v4';
+
+var DEFAULT_CELLS = [
+  {id:'cell-nmc21700', name:'NMC 21700 (5.0 Ah)', application:'EV', chemistry:'NMC 811', form:'Cylindrical 21700',
+   vNom:3.6, vMin:2.5, vMax:4.2, capacity:5.0, mass:0.070,
+   diameter:21.2, height:70.0, width:null, length:null, thickness:null, ir:25,
+   cRateContDis:3, cRatePulseDis:10, cRateContChg:1, cRatePulseChg:2,
+   tempMin:-20, tempMax:60, socMin:0.05, socMax:0.95, cycleLife:1000, cost:5.5,
+   confidence:'medium', notes:'Generic EV cylindrical', cp:1000, kRadial:0.8, kAxial:1.5},
+  {id:'cell-nmc4680', name:'NMC 4680 (26 Ah)', application:'EV', chemistry:'NMC', form:'Cylindrical 4680',
+   vNom:3.7, vMin:2.5, vMax:4.2, capacity:26, mass:0.355,
+   diameter:46, height:80, width:null, length:null, thickness:null, ir:6,
+   cRateContDis:4, cRatePulseDis:12, cRateContChg:1.5, cRatePulseChg:3,
+   tempMin:-20, tempMax:60, socMin:0.05, socMax:0.95, cycleLife:1200, cost:22,
+   confidence:'medium', notes:'Large format EV', cp:1000, kRadial:0.9, kAxial:1.8},
+  {id:'cell-lfp100p', name:'LFP Prismatic 100 Ah', application:'EV', chemistry:'LFP', form:'Prismatic',
+   vNom:3.2, vMin:2.5, vMax:3.65, capacity:100, mass:1.95,
+   diameter:null, height:200, width:174, length:207, thickness:26.5, ir:0.5,
+   cRateContDis:1, cRatePulseDis:3, cRateContChg:1, cRatePulseChg:2,
+   tempMin:-20, tempMax:55, socMin:0.05, socMax:0.95, cycleLife:4000, cost:42,
+   confidence:'medium', notes:'LFP prismatic', cp:1050, kRadial:1.2, kAxial:1.5},
+  {id:'cell-lfp280p', name:'LFP Prismatic 280 Ah', application:'BESS', chemistry:'LFP', form:'Prismatic',
+   vNom:3.2, vMin:2.5, vMax:3.65, capacity:280, mass:5.4,
+   diameter:null, height:207, width:174, length:207, thickness:71.7, ir:0.18,
+   cRateContDis:1, cRatePulseDis:2, cRateContChg:0.5, cRatePulseChg:1,
+   tempMin:-10, tempMax:55, socMin:0.05, socMax:0.95, cycleLife:6000, cost:95,
+   confidence:'medium', notes:'BESS prismatic', cp:1100, kRadial:1.2, kAxial:1.5},
+  {id:'cell-lfp100bess', name:'LFP Prismatic 100 Ah (BESS)', application:'BESS', chemistry:'LFP', form:'Prismatic',
+   vNom:3.2, vMin:2.5, vMax:3.65, capacity:100, mass:2.0,
+   diameter:null, height:200, width:174, length:207, thickness:26.5, ir:0.55,
+   cRateContDis:1, cRatePulseDis:2, cRateContChg:0.5, cRatePulseChg:1,
+   tempMin:-10, tempMax:55, socMin:0.05, socMax:0.95, cycleLife:5000, cost:45,
+   confidence:'medium', notes:'BESS module cell', cp:1050, kRadial:1.2, kAxial:1.5},
+  {id:'cell-naion100', name:'Na-ion Prismatic 100 Ah', application:'BESS', chemistry:'Na-ion', form:'Prismatic',
+   vNom:3.0, vMin:1.5, vMax:4.0, capacity:100, mass:2.3,
+   diameter:null, height:200, width:174, length:207, thickness:26.5, ir:0.7,
+   cRateContDis:1, cRatePulseDis:2, cRateContChg:1, cRatePulseChg:2,
+   tempMin:-20, tempMax:60, socMin:0.05, socMax:0.95, cycleLife:3000, cost:38,
+   confidence:'low', notes:'Na-ion emerging', cp:1080, kRadial:1.0, kAxial:1.3}
+];
+var DEFAULT_DRIVE_CYCLES = [
+  {id:'dc-wltp', name:'WLTP Class 3b', application:'EV'},
+  {id:'dc-udds', name:'EPA UDDS', application:'EV'},
+  {id:'dc-const100', name:'Constant 100 km/h', application:'EV'}
+];
+var DEFAULT_BESS_PROFILES = [
+  {id:'bess-daily', name:'Daily 1C cycle', application:'BESS'},
+  {id:'bess-peak', name:'Peak shaving 0.5C', application:'BESS'},
+  {id:'bess-freq', name:'Frequency regulation', application:'BESS'}
+];
+
+function emptyLibrary() {
+  return { cells: JSON.parse(JSON.stringify(DEFAULT_CELLS)), driveCycles: JSON.parse(JSON.stringify(DEFAULT_DRIVE_CYCLES)), bessProfiles: JSON.parse(JSON.stringify(DEFAULT_BESS_PROFILES)), version: 4 };
+}
+function loadLibrary() {
+  try {
+    var raw = localStorage.getItem(LIB_KEY);
+    if (!raw) return emptyLibrary();
+    var parsed = JSON.parse(raw);
+    var base = emptyLibrary();
+    if (parsed.cells) base.cells = parsed.cells;
+    if (parsed.driveCycles) base.driveCycles = parsed.driveCycles;
+    if (parsed.bessProfiles) base.bessProfiles = parsed.bessProfiles;
+    return base;
+  } catch (e) { return emptyLibrary(); }
+}
+function saveLibrary(lib) { try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch(e){} }
+function loadProjects() { try { var raw = localStorage.getItem(DB_KEY); return raw ? JSON.parse(raw) : {}; } catch(e){ return {}; } }
+function saveProjects(p) { try { localStorage.setItem(DB_KEY, JSON.stringify(p)); } catch(e){ console.error(e); } }
+function loadApp() { try { var raw = localStorage.getItem(APP_KEY); return raw ? JSON.parse(raw) : {}; } catch(e){ return {}; } }
+function saveApp(a) { try { localStorage.setItem(APP_KEY, JSON.stringify(a)); } catch(e){} }
+
+/* ============ Defaults ============ */
+function defaultMechanical() {
+  return {
+    tray: { enabled:true, depth:90, thickness:2.5, material:'Aluminum 6061', mountingPoints:4 },
+    cover: { enabled:true, type:'SMC', thickness:3.0, ribs:8, inserts:4 },
+    insulation: { enabled:true, type:'Mica sheet', grade:'Muscovite', thickness_mm:0.4, areaFactor:1.05 },
+    cooling: { enabled:true, type:'Liquid cold plate', plateMaterial:'Aluminum 3003', channels:12 },
+    fasteners: { mainBolt:'M8 A2', mainQty:8, moduleBolt:'M5 A2', moduleQty:null, torque_Nm:22 },
+    seal: { type:'Silicone gasket', profile:'Rectangular', length_m:2, compression:0.25 },
+    harness: { enabled:true, cableMass_per_m:0.15, totalLength_m:6 },
+    bms: { type:'Centralized', mass_kg:0.8, cost:180 },
+    contactor: { mainQty:2, prechargeQty:1, mass_kg:0.3, cost:120 },
+    serviceDisconnect: { qty:1, mass_kg:0.4, cost:85 },
+    connectors: { type:'HV connector', qty:2, mass_kg:0.25, cost:60 }
+  };
+}
+function defaultBMS() {
+  return {
+    architecture: 'Centralized', voltageChannels: null, tempChannels: null,
+    cellVmax: 4.25, cellVmin: 2.5, packOvervoltage: null, packUndervoltage: null,
+    overcurrentChg: null, overcurrentDis: null, overTempChg: 45, overTempDis: 55,
+    underTempChg: 0, underTempDis: -20, isolationTargetOhmPerV: 500,
+    socEstimationMethod: 'Coulomb counting + OCV',
+    interlocks: ['HVIL', 'Service disconnect detect', 'Cover removal detect'],
+    contactorPrechargeTime_ms: 300
+  };
+}
+function defaultSimSettings() {
+  return { runs: [], loadProfile: 'Constant power', loadValue: 50, duration_s: 1800, timeStep_s: 10, initialSOC: 0.9 };
+}
+function defaultTestPlan() { return { standard: null, tests: [], evidence: '' }; }
+function defaultManufacturing() { return { steps: [], qualityChecks: [], batchSize: 1 }; }
+
+function newProject(kind) {
+  kind = kind || 'EV';
+  return {
+    id: uid(), schemaVersion: 4, kind: kind,
+    name: kind === 'EV' ? 'New EV Pack' : 'New BESS Pack',
+    createdAt: nowISO(), updatedAt: nowISO(), revision: 0,
+    architecture: {
+      vehicleCategory: 'Passenger car', curbMass: 1800, payload: 400,
+      targetRange: 400, energyPerKm: 150, driveCycleId: 'dc-wltp', chargePower: 150,
+      packEnvelopeL: 1600, packEnvelopeW: 1200, packEnvelopeH: 200,
+      ambientMin: -20, ambientMax: 45,
+      bessCategory: 'Commercial', bessEnergy: 100, bessPower: 50,
+      bessVoltageNominal: 800, bessProfileId: 'bess-daily',
+      bessEnvelopeL: 2000, bessEnvelopeW: 1000, bessEnvelopeH: 2200,
+      targetPackVoltage: null, energyTargetOverride: null
+    },
+    cellSelection: { cellId: 'cell-nmc21700', cellSnapshot: null },
+    electrical: { ns: null, np: null, busbarMaterial: 'Copper', busbarCurrentDensity: 4.0, busbarSafetyFactor: 1.2, cableLength: 3.0 },
+    layout: { cellSpacing_mm: 2.0, moduleCellsPerRow: 12, modulesPerRow: 1, layers: 1 },
+    mechanical: defaultMechanical(),
+    thermal: { ambientTemp: 30, initialTemp: 25, coolingType: 'Liquid', coolant: 'Water-Glycol 50/50', inletTemp: 25, flowRate_Lpm: 8, htc_W_m2K: 350, contactResistance_K_W: 0.8, duration_s: 3600, timeStep_s: 10, dutyCRate: 1.0 },
+    coolant: { segments: [], pump: { name:'Main pump', designFlow_Lpm:8, head_m:5 }, coolant:'Water-Glycol 50/50' },
+    bms: defaultBMS(), simulation: defaultSimSettings(), testing: defaultTestPlan(),
+    manufacturing: defaultManufacturing(),
+    bom: { costBasis: { laborRate_USD_hr: 45, overheadPercent: 12, scrapPercent: 3 } },
+    revisionsLog: []
+  };
+}
+
+/* ============ State ============ */
+var State = {
+  library: loadLibrary(),
+  projects: loadProjects(),
+  currentProjectId: null,
+  currentView: 'dashboard',
+  app: loadApp()
+};
+
+function getProject() { return State.currentProjectId ? State.projects[State.currentProjectId] : null; }
+function touchProject(p) { if (!p) return; p.updatedAt = nowISO(); p.revision = (p.revision || 0) + 1; saveProjects(State.projects); }
+
+/* ============ NAV ============ */
+var NAV = [
+  {id:'dashboard', num:'01', title:'Dashboard & Projects', sub:'Create, open, backup', icon:'folder'},
+  {id:'architecture', num:'02', title:'Application Architecture', sub:'EV / BESS requirements', icon:'battery'},
+  {id:'cells', num:'03', title:'Cell & Material Database', sub:'Cell library', icon:'chip'},
+  {id:'electrical', num:'04', title:'Electrical Design', sub:'S/P sizing', icon:'layers'},
+  {id:'layout', num:'05', title:'Module & Pack Layout', sub:'2D & isometric view', icon:'layers'},
+  {id:'enclosure', num:'06', title:'Enclosure & Structure', sub:'Tray, covers', icon:'bess'},
+  {id:'joining', num:'07', title:'Joining & Sealing', sub:'Fasteners, gaskets', icon:'list'},
+  {id:'thermal', num:'08', title:'Thermal Management', sub:'Heatmap, plots', icon:'thermo'},
+  {id:'coolant', num:'09', title:'Coolant Flow Designer', sub:'Schematic, ΔP', icon:'flow'},
+  {id:'bms', num:'10', title:'BMS & Safety', sub:'Thresholds, checks', icon:'chip'},
+  {id:'simulation', num:'11', title:'Simulation Centre', sub:'SOC/voltage curves', icon:'sim'},
+  {id:'testing', num:'12', title:'Testing & Validation', sub:'Standards, tests', icon:'check'},
+  {id:'bom', num:'13', title:'BOM & Costing', sub:'Cost breakdown chart', icon:'list'},
+  {id:'manufacturing', num:'14', title:'Manufacturing & Assembly', sub:'Sequences, QC', icon:'factory'},
+  {id:'reports', num:'15', title:'Design Review & Reports', sub:'Summary, compare', icon:'report'},
+  {id:'diagnostics', num:'⌬', title:'Diagnostics', sub:'Storage, browser', icon:'diag'}
+];
+
+/* ============ Sizing ============ */
+function getActiveCell(p) {
+  if (!p) return null;
+  for (var i = 0; i < State.library.cells.length; i++) if (State.library.cells[i].id === p.cellSelection.cellId) return State.library.cells[i];
+  return null;
+}
+function getSizing(p) {
+  var cell = getActiveCell(p);
+  if (!cell) return null;
+  var a = p.architecture;
+  var targetEnergyKWh = a.energyTargetOverride;
+  if (targetEnergyKWh == null) targetEnergyKWh = (p.kind === 'EV') ? ((+a.targetRange || 0) * (+a.energyPerKm || 0) / 1000) : (+a.bessEnergy || 0);
+  var targetVoltage = a.targetPackVoltage;
+  if (targetVoltage == null) targetVoltage = p.kind === 'EV' ? 400 : (+a.bessVoltageNominal || 800);
+  var cellEnergyWh = cell.vNom * cell.capacity;
+  var Ns = p.electrical.ns || Math.max(1, Math.round(targetVoltage / cell.vNom));
+  var Np = p.electrical.np || Math.max(1, Math.ceil((targetEnergyKWh * 1000) / (Ns * cellEnergyWh)));
+  return {
+    cell: cell, targetEnergyKWh: targetEnergyKWh, targetVoltage: targetVoltage,
+    Ns: Ns, Np: Np, total: Ns * Np,
+    packNominalV: Ns * cell.vNom, packMinV: Ns * cell.vMin, packMaxV: Ns * cell.vMax,
+    packEnergyKWh: Ns * Np * cellEnergyWh / 1000, packCapacityAh: Np * cell.capacity,
+    packMass_kg: Ns * Np * cell.mass
+  };
+}
+
+/* ============ Status ============ */
+function deriveArchitectureStatus(p) {
+  if (!p) return 'empty';
+  var a = p.architecture;
+  if (p.kind === 'EV') return (a.targetRange > 0 && a.energyPerKm > 0 && a.curbMass > 0) ? 'done' : 'partial';
+  return (a.bessEnergy > 0 && a.bessPower > 0 && a.bessVoltageNominal > 0) ? 'done' : 'partial';
+}
+function deriveCellsStatus(p) { return getActiveCell(p) ? 'done' : 'partial'; }
+function deriveElectricalStatus(p) { return getSizing(p) ? 'done' : 'partial'; }
+function deriveLayoutStatus(p) { return getSizing(p) ? 'done' : 'empty'; }
+function deriveMechanicalStatus(p) { return (p.mechanical.tray.enabled && p.mechanical.cover.enabled) ? 'done' : 'partial'; }
+function deriveThermalStatus(p) { return (p.thermal.duration_s > 0 && p.thermal.dutyCRate > 0) ? 'done' : 'partial'; }
+function deriveCoolantStatus(p) { return (p.coolant.segments.length > 0) ? 'done' : 'partial'; }
+function deriveBMSStatus(p) { return (p.bms.voltageChannels > 0 && p.bms.tempChannels > 0) ? 'done' : 'partial'; }
+function deriveSimStatus(p) { return (p.simulation.runs.length > 0) ? 'done' : 'partial'; }
+function deriveTestingStatus(p) { return (p.testing.tests.length > 0) ? 'done' : 'partial'; }
+function deriveBOMStatus(p) { return getSizing(p) ? 'done' : 'partial'; }
+function deriveMfgStatus(p) { return (p.manufacturing.steps.length > 0) ? 'done' : 'partial'; }
+function viewStatus(viewId) {
+  var p = getProject();
+  if (viewId === 'dashboard' || viewId === 'diagnostics' || viewId === 'reports') return 'done';
+  if (!p) return 'empty';
+  if (viewId === 'architecture') return deriveArchitectureStatus(p);
+  if (viewId === 'cells') return deriveCellsStatus(p);
+  if (viewId === 'electrical') return deriveElectricalStatus(p);
+  if (viewId === 'layout') return deriveLayoutStatus(p);
+  if (viewId === 'enclosure' || viewId === 'joining') return deriveMechanicalStatus(p);
+  if (viewId === 'thermal') return deriveThermalStatus(p);
+  if (viewId === 'coolant') return deriveCoolantStatus(p);
+  if (viewId === 'bms') return deriveBMSStatus(p);
+  if (viewId === 'simulation') return deriveSimStatus(p);
+  if (viewId === 'testing') return deriveTestingStatus(p);
+  if (viewId === 'bom') return deriveBOMStatus(p);
+  if (viewId === 'manufacturing') return deriveMfgStatus(p);
+  return 'empty';
+}
+
+/* ============ Chrome ============ */
+function renderNav() {
+  var nav = $('#nav');
+  if (!nav) return;
+  nav.innerHTML = '';
+  for (var i = 0; i < NAV.length; i++) {
+    (function(item) {
+      var st = viewStatus(item.id);
+      var active = State.currentView === item.id;
+      var div = el('div', {class:'nav-item' + (active ? ' active' : ''), onclick: function() { navigate(item.id); }},
+        el('span', {class:'num'}, item.num),
+        el('div', {class:'label'},
+          el('div', {class:'title'}, item.title),
+          el('div', {class:'sub'}, item.sub)),
+        el('span', {class:'status ' + st}));
+      nav.appendChild(div);
+    })(NAV[i]);
+  }
+}
+function renderTopbar() {
+  var p = getProject();
+  var tb = $('#topbar');
+  if (!tb) return;
+  tb.innerHTML = '';
+  if (!p) { tb.appendChild(el('span', {class:'crumb'}, 'No project open')); return; }
+  tb.appendChild(el('span', {class:'crumb'}, el('b', {}, p.name), ' · rev ' + p.revision));
+  tb.appendChild(el('span', {class:'tag ' + p.kind.toLowerCase()}, p.kind));
+  tb.appendChild(el('span', {class:'spacer'}));
+  tb.appendChild(el('button', {class:'btn sm', onclick: saveCurrentNow}, 'Save'));
+  tb.appendChild(el('button', {class:'btn sm', onclick: exportProject}, 'Export'));
+  tb.appendChild(el('button', {class:'btn sm', onclick: function() { State.currentProjectId = null; navigate('dashboard'); }}, 'Close'));
+}
+function saveCurrentNow() {
+  var p = getProject();
+  if (p) { touchProject(p); toast('Project saved', 'ok'); render(); }
+}
+function renderStatusbar() {
+  var sb = $('#statusbar');
+  if (!sb) return;
+  sb.innerHTML = '';
+  var p = getProject();
+  if (!p) { sb.appendChild(el('span', {}, 'Ready')); return; }
+  sb.appendChild(el('span', {}, el('span', {class:'dot'}), 'No blocking issues'));
+  sb.appendChild(el('span', {}, 'Revision ' + p.revision));
+  sb.appendChild(el('span', {}, 'Updated ' + new Date(p.updatedAt).toLocaleString()));
+}
+
+var toastTimer = null;
+function toast(text, type) {
+  type = type || 'info';
+  var existing = $('#toast');
+  if (existing) existing.remove();
+  var bg = type === 'err' ? '#b42318' : type === 'ok' ? '#1e7d3c' : type === 'warn' ? '#9a6700' : '#1c2530';
+  var t = el('div', {id:'toast', style:'position:fixed;bottom:36px;left:50%;transform:translateX(-50%);background:' + bg + ';color:#fff;padding:8px 16px;border-radius:4px;font-size:12px;z-index:200;box-shadow:0 4px 20px rgba(0,0,0,.2);max-width:80vw;text-align:center'}, text);
+  document.body.appendChild(t);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function() { t.remove(); }, 3200);
+}
+
+function navigate(viewId) { State.currentView = viewId; render(); }
+function render() {
+  try {
+    renderNav(); renderTopbar(); renderView(); renderStatusbar();
+  } catch (e) {
+    console.error('Render error:', e);
+    var c = $('#content');
+    if (c) {
+      c.innerHTML = '';
+      c.appendChild(el('div', {class:'alert err', style:'margin:20px'},
+        el('b', {}, 'Rendering error: '), String(e && e.message || e),
+        el('div', {class:'small muted', style:'margin-top:6px'}, 'Open dev tools console for details. Project data is preserved.')));
+    }
+  }
+}
+
+function renderView() {
+  var c = $('#content');
+  if (!c) return;
+  c.innerHTML = '';
+  var view = State.currentView;
+  if (view === 'dashboard') return renderDashboard(c);
+  if (view === 'diagnostics') return renderDiagnostics(c);
+  if (view === 'reports') return renderReports(c);
+  if (!getProject()) {
+    c.appendChild(el('div', {class:'empty-state'},
+      el('h3', {}, 'No project open'),
+      el('p', {}, 'Create or open a project from the Dashboard.'),
+      el('button', {class:'btn primary', onclick: function() { navigate('dashboard'); }}, 'Go to Dashboard')));
+    return;
+  }
+  if (view === 'architecture') return renderArchitecture(c);
+  if (view === 'cells') return renderCells(c);
+  if (view === 'electrical') return renderElectrical(c);
+  if (view === 'layout') return renderLayout(c);
+  if (view === 'enclosure') return renderEnclosure(c);
+  if (view === 'joining') return renderJoining(c);
+  if (view === 'thermal') return renderThermal(c);
+  if (view === 'coolant') return renderCoolant(c);
+  if (view === 'bms') return renderBMS(c);
+  if (view === 'simulation') return renderSimulation(c);
+  if (view === 'testing') return renderTesting(c);
+  if (view === 'bom') return renderBOM(c);
+  if (view === 'manufacturing') return renderManufacturing(c);
+}
+
+/* ============ Helpers ============ */
+function stat(label, value) {
+  return el('div', {}, el('div', {class:'small muted'}, label),
+    el('div', {style:'font-family:var(--mono);font-weight:600;font-size:13px'}, value));
+}
+function fieldText(label, value, onChange) {
+  return el('div', {class:'field'}, el('label', {}, label),
+    el('input', {type:'text', value: value == null ? '' : value, onchange: function(e) { onChange(e.target.value); }}));
+}
+function fieldNum(label, value, onChange, step) {
+  return el('div', {class:'field'}, el('label', {}, label),
+    el('input', {type:'number', step: step || '1', value: value == null ? '' : value, onchange: function(e) {
+      var v = parseFloat(e.target.value);
+      if (!isFinite(v)) { e.target.classList.add('soft-invalid'); return; }
+      e.target.classList.remove('soft-invalid');
+      onChange(v);
+    }}));
+}
+function eqBlock(title, formula, inputs, result) {
+  return el('div', {class:'eq'}, el('span', {class:'lbl'}, title),
+    el('div', {}, formula),
+    inputs ? el('div', {style:'font-size:10.5px;color:var(--text-muted);margin-top:4px'}, inputs.join(' · ')) : null,
+    el('div', {style:'font-weight:600;color:var(--text);margin-top:4px'}, result));
+}
+function readNum(e) { var v = parseFloat(e.target.value); return isFinite(v) ? v : 0; }
+
+/* ============ Dashboard ============ */
+function renderDashboard(root) {
+  var list = [];
+  for (var k in State.projects) if (Object.prototype.hasOwnProperty.call(State.projects, k)) list.push(State.projects[k]);
+  list.sort(function(a, b) { return new Date(b.updatedAt) - new Date(a.updatedAt); });
+
+  var wrap = el('div', {class:'view'});
+
+  // Hero
+  var hero = el('div', {class:'hero'},
+    el('div', {},
+      el('h2', {}, 'Battery Engineering Workbench'),
+      el('p', {}, 'Design EV battery packs and BESS systems end-to-end. Offline, no dependencies, all calculations traceable.'),
+      el('div', {class:'hero-actions'},
+        el('button', {onclick: function() { createProject('EV'); }}, '+ New EV Pack'),
+        el('button', {onclick: function() { createProject('BESS'); }}, '+ New BESS System'),
+        el('button', {class:'ghost', onclick: importProject}, 'Import project'))),
+    buildHeroIllustration());
+  wrap.appendChild(hero);
+
+  // Stats
+  var totalCells = 0, totalBOMValue = 0, totalProjects = list.length;
+  for (var i = 0; i < list.length; i++) {
+    var s = getSizing(list[i]);
+    if (s) totalCells += s.total;
+    var b = computeBOM(list[i]);
+    if (b) totalBOMValue += b.totalCost;
+  }
+  wrap.appendChild(el('div', {class:'stats-row'},
+    statTile('battery', String(totalProjects), 'Projects'),
+    statTile('chip', String(totalCells), 'Total cells'),
+    statTile('report', '$' + num(totalBOMValue, 0), 'Est. BOM value'),
+    statTile('diag', hasLS() ? 'Local' : 'No storage', 'Storage')));
+
+  // Projects
+  if (list.length === 0) {
+    wrap.appendChild(el('div', {class:'card'},
+      el('div', {class:'empty-state'},
+        el('h3', {}, 'No projects yet'),
+        el('p', {}, 'Create an EV or BESS project above to begin.'))));
+  } else {
+    var card = el('div', {class:'card'}, el('h3', {}, 'Projects (' + list.length + ')'));
+    for (var j = 0; j < list.length; j++) {
+      (function(p) {
+        var s = getSizing(p);
+        var summary = s
+          ? s.Ns + 'S ' + s.Np + 'P · ' + num(s.packEnergyKWh, 1) + ' kWh · ' + num(s.packMass_kg, 1) + ' kg'
+          : 'Not sized yet';
+        card.appendChild(el('div', {class:'proj-row'},
+          el('div', {class:'info'},
+            el('div', {class:'name'}, p.name, ' ', el('span', {class:'chip ' + p.kind.toLowerCase()}, p.kind)),
+            el('div', {class:'meta'}, summary + ' · rev ' + p.revision + ' · ' + new Date(p.updatedAt).toLocaleDateString())),
+          el('div', {class:'actions'},
+            el('button', {class:'btn sm primary', onclick: function() { State.currentProjectId = p.id; navigate('architecture'); }}, 'Open'),
+            el('button', {class:'btn sm', onclick: function() { duplicateProject(p.id); }}, 'Duplicate'),
+            el('button', {class:'btn sm', onclick: function() { exportProjectById(p.id); }}, 'Export'),
+            el('button', {class:'btn sm danger', onclick: function() { deleteProject(p.id); }}, 'Delete'))));
+      })(list[j]);
+    }
+    wrap.appendChild(card);
+  }
+  root.appendChild(wrap);
+}
+function statTile(iconName, num, lbl) {
+  var iconNode = el('span', {class:'icon', html: ICONS[iconName] || ICONS.battery});
+  iconNode.innerHTML = ICONS[iconName] || ICONS.battery;
+  return el('div', {class:'stat-tile'},
+    el('div', {class:'icon'}).appendChild(iconNode) || iconNode,
+    el('div', {class:'info'}, el('div', {class:'num'}, num), el('div', {class:'lbl'}, lbl)));
+}
+function buildHeroIllustration() {
+  var s = svg('svg', {width:'280', height:'180', viewBox:'0 0 280 180'});
+  // Isometric pack
+  s.appendChild(svg('polygon', {points:'40,80 100,50 220,50 160,80', fill:'#a8c8e0', opacity:'0.9'}));
+  s.appendChild(svg('polygon', {points:'40,80 160,80 160,150 40,150', fill:'#5c8fb8'}));
+  s.appendChild(svg('polygon', {points:'160,80 220,50 220,120 160,150', fill:'#3d7096'}));
+  // cells on top
+  for (var r = 0; r < 3; r++) for (var c = 0; c < 5; c++) {
+    var cx = 55 + c * 30 + r * 12;
+    var cy = 70 + r * -8 + r * 8;
+    // simplified: cells arranged in iso plane
+  }
+  // Add stylised cells grid on top
+  for (var i = 0; i < 12; i++) {
+    var cx2 = 50 + (i % 6) * 20 + Math.floor(i / 6) * 10;
+    var cy2 = 70 + Math.floor(i / 6) * 8;
+    s.appendChild(svg('circle', {cx: cx2, cy: cy2 - Math.floor(i / 6) * 8, r: 4, fill:'#0a4a73', opacity:'0.85'}));
+  }
+  // lightning bolt
+  s.appendChild(svg('polygon', {points:'100,110 120,110 112,125 130,125 108,155 118,132 100,132', fill:'#ffd966', stroke:'#fff', 'stroke-width':'1'}));
+  // title
+  s.appendChild(svgText(140, 170, 'EV · BESS · Offline', {size:'10', color:'rgba(255,255,255,.8)', anchor:'middle', mono:true}));
+  return s;
+}
+function createProject(kind) {
+  var p = newProject(kind);
+  State.projects[p.id] = p;
+  State.currentProjectId = p.id;
+  saveProjects(State.projects);
+  navigate('architecture');
+  toast(kind + ' project created', 'ok');
+}
+function duplicateProject(id) {
+  var p = State.projects[id]; if (!p) return;
+  var c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.name = p.name + ' (copy)'; c.updatedAt = nowISO(); c.revision = 0;
+  State.projects[c.id] = c; saveProjects(State.projects); toast('Duplicated', 'ok'); renderView();
+}
+function deleteProject(id) {
+  var p = State.projects[id]; if (!p) return;
+  if (!confirm('Delete "' + p.name + '"?')) return;
+  delete State.projects[id];
+  if (State.currentProjectId === id) State.currentProjectId = null;
+  saveProjects(State.projects); render();
+}
+function download(filename, content, mime) {
+  mime = mime || 'application/json';
+  var blob = new Blob([content], {type: mime});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a'); a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(function() { URL.revokeObjectURL(url); a.remove(); }, 0);
+}
+function exportProject() { var p = getProject(); if (p) exportProjectById(p.id); }
+function exportProjectById(id) {
+  var p = State.projects[id]; if (!p) return;
+  download(p.name.replace(/[^\w-]+/g, '_') + '_rev' + p.revision + '.bewproj.json', JSON.stringify(p, null, 2));
+  toast('Exported', 'ok');
+}
+function importProject() {
+  pickFile('.json', function(file) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var p = JSON.parse(ev.target.result);
+        if (!p.id || !p.kind || !p.architecture) throw new Error('Invalid project file');
+        p.id = uid(); p.name = (p.name || 'Imported') + ' (imported)'; p.revision = 0;
+        State.projects[p.id] = p; State.currentProjectId = p.id;
+        saveProjects(State.projects); navigate('architecture');
+        toast('Imported', 'ok');
+      } catch(e) { toast('Import failed: ' + e.message, 'err'); }
+    };
+    reader.readAsText(file);
+  });
+}
+function exportLibrary() { download('bew_library.json', JSON.stringify(State.library, null, 2)); toast('Library exported', 'ok'); }
+function importLibrary() {
+  pickFile('.json', function(file) {
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var lib = JSON.parse(ev.target.result);
+        if (!lib.cells || !Array.isArray(lib.cells)) throw new Error('Invalid library');
+        var byId = {};
+        for (var i = 0; i < State.library.cells.length; i++) byId[State.library.cells[i].id] = State.library.cells[i];
+        for (var j = 0; j < lib.cells.length; j++) byId[lib.cells[j].id] = lib.cells[j];
+        var out = [];
+        for (var id in byId) if (Object.prototype.hasOwnProperty.call(byId, id)) out.push(byId[id]);
+        State.library.cells = out; saveLibrary(State.library);
+        toast('Library imported', 'ok'); render();
+      } catch(e) { toast('Library import failed: ' + e.message, 'err'); }
+    };
+    reader.readAsText(file);
+  });
+}
+function pickFile(accept, cb) {
+  var inp = el('input', {type:'file', accept: accept, style:'display:none'});
+  inp.addEventListener('change', function() { if (inp.files[0]) cb(inp.files[0]); inp.remove(); });
+  document.body.appendChild(inp); inp.click();
+}
+
+/* ============ Architecture ============ */
+function renderArchitecture(root) {
+  var p = getProject();
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Application Architecture'));
+  wrap.appendChild(el('p', {class:'page-sub'}, p.kind + ' requirements and system limits.'));
+  wrap.appendChild(el('div', {style:'margin-bottom:10px'},
+    el('span', {class:'chip ' + (deriveArchitectureStatus(p) === 'done' ? 'ok' : 'warn')},
+      deriveArchitectureStatus(p) === 'done' ? 'Requirements complete' : 'Requirements in progress')));
+  if (p.kind === 'EV') renderEvArchitecture(wrap, p);
+  else renderBessArchitecture(wrap, p);
+  root.appendChild(wrap);
+}
+function renderEvArchitecture(wrap, p) {
+  var a = p.architecture;
+  var g = el('div', {class:'grid cols-2'});
+  function f(label, input) { return el('div', {class:'field'}, el('label', {}, label), input); }
+  function numInput(value, onChange, step) {
+    return el('input', {type:'number', step: step || '1', value: value, onchange: function(e) {
+      var v = readNum(e); onChange(v); touchProject(p); render();
+    }});
+  }
+  g.appendChild(f('Vehicle category', el('select', {onchange: function(e) { a.vehicleCategory = e.target.value; touchProject(p); }},
+    ...['Passenger car','SUV','Light commercial','Heavy commercial','Bus','Two-wheeler'].map(function(o) {
+      return el('option', {value: o, selected: a.vehicleCategory === o ? 'selected' : null}, o);
+    }))));
+  g.appendChild(f('Drive cycle', el('select', {onchange: function(e) { a.driveCycleId = e.target.value; touchProject(p); }},
+    ...State.library.driveCycles.map(function(d) {
+      return el('option', {value: d.id, selected: a.driveCycleId === d.id ? 'selected' : null}, d.name);
+    }))));
+  g.appendChild(f('Curb mass (kg)', numInput(a.curbMass, function(v) { a.curbMass = v; }, '10')));
+  g.appendChild(f('Payload (kg)', numInput(a.payload, function(v) { a.payload = v; }, '10')));
+  g.appendChild(f('Target range (km)', numInput(a.targetRange, function(v) { a.targetRange = v; }, '10')));
+  g.appendChild(f('Energy per km (Wh/km)', numInput(a.energyPerKm, function(v) { a.energyPerKm = v; }, '10')));
+  g.appendChild(f('DC charge power (kW)', numInput(a.chargePower, function(v) { a.chargePower = v; }, '10')));
+  g.appendChild(f('Pack envelope L (mm)', numInput(a.packEnvelopeL, function(v) { a.packEnvelopeL = v; }, '10')));
+  g.appendChild(f('Pack envelope W (mm)', numInput(a.packEnvelopeW, function(v) { a.packEnvelopeW = v; }, '10')));
+  g.appendChild(f('Pack envelope H (mm)', numInput(a.packEnvelopeH, function(v) { a.packEnvelopeH = v; }, '10')));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Vehicle & Pack Requirements'), g));
+
+  var calcEnergy = (+a.targetRange || 0) * (+a.energyPerKm || 0) / 1000;
+  var effOverride = a.energyTargetOverride != null;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Derived targets'),
+    eqBlock('Energy target', 'E_target = ' + a.targetRange + ' km × ' + a.energyPerKm + ' Wh/km = ' + num(calcEnergy, 2) + ' kWh', null, 'Target: ' + num(calcEnergy, 2) + ' kWh'),
+    el('div', {class:'grid cols-2'},
+      el('div', {class:'field'}, el('label', {}, 'Energy override (kWh)'),
+        el('input', {type:'number', step:'0.1', value: a.energyTargetOverride == null ? '' : a.energyTargetOverride, placeholder:'blank = use derived', onchange: function(e) {
+          var v = e.target.value.trim();
+          a.energyTargetOverride = v === '' ? null : parseFloat(v);
+          touchProject(p); render();
+        }})),
+      el('div', {class:'field'}, el('label', {}, 'Pack voltage override (V)'),
+        el('input', {type:'number', step:'1', value: a.targetPackVoltage == null ? '' : a.targetPackVoltage, placeholder:'blank = auto', onchange: function(e) {
+          var v = e.target.value.trim();
+          a.targetPackVoltage = v === '' ? null : parseFloat(v);
+          touchProject(p); render();
+        }})))));
+}
+function renderBessArchitecture(wrap, p) {
+  var a = p.architecture;
+  var g = el('div', {class:'grid cols-2'});
+  function f(label, input) { return el('div', {class:'field'}, el('label', {}, label), input); }
+  function numInput(value, onChange, step) {
+    return el('input', {type:'number', step: step || '1', value: value, onchange: function(e) {
+      var v = readNum(e); onChange(v); touchProject(p); render();
+    }});
+  }
+  g.appendChild(f('BESS category', el('select', {onchange: function(e) { a.bessCategory = e.target.value; touchProject(p); }},
+    ...['Residential','Commercial','Industrial','Grid-scale'].map(function(o) {
+      return el('option', {value: o, selected: a.bessCategory === o ? 'selected' : null}, o);
+    }))));
+  g.appendChild(f('Load profile', el('select', {onchange: function(e) { a.bessProfileId = e.target.value; touchProject(p); }},
+    ...State.library.bessProfiles.map(function(d) {
+      return el('option', {value: d.id, selected: a.bessProfileId === d.id ? 'selected' : null}, d.name);
+    }))));
+  g.appendChild(f('Rated energy (kWh)', numInput(a.bessEnergy, function(v) { a.bessEnergy = v; }, '1')));
+  g.appendChild(f('Rated power (kW)', numInput(a.bessPower, function(v) { a.bessPower = v; }, '1')));
+  g.appendChild(f('Nominal DC voltage (V)', numInput(a.bessVoltageNominal, function(v) { a.bessVoltageNominal = v; }, '10')));
+  g.appendChild(f('Envelope L (mm)', numInput(a.bessEnvelopeL, function(v) { a.bessEnvelopeL = v; }, '10')));
+  g.appendChild(f('Envelope W (mm)', numInput(a.bessEnvelopeW, function(v) { a.bessEnvelopeW = v; }, '10')));
+  g.appendChild(f('Envelope H (mm)', numInput(a.bessEnvelopeH, function(v) { a.bessEnvelopeH = v; }, '10')));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'BESS Requirements'), g));
+  var calcDuration = a.bessPower > 0 ? a.bessEnergy / a.bessPower : 0;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Derived targets'),
+    eqBlock('Duration', 'duration = ' + a.bessEnergy + ' kWh / ' + a.bessPower + ' kW = ' + num(calcDuration, 2) + ' h', null, num(calcDuration, 2) + ' h')));
+}
+
+/* ============ Cells ============ */
+function renderCells(root) {
+  var p = getProject();
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Cell & Material Database'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Select a cell or manage the library.'));
+  var app = p.kind;
+  var list = State.library.cells.filter(function(c) { return !c.application || c.application === app || c.application === 'Both'; });
+  var sel = p.cellSelection.cellId;
+  var card = el('div', {class:'card'}, el('h3', {}, 'Library (' + list.length + ')',
+    el('button', {class:'btn sm', onclick: function() { openCellEditor(null); }}, '+ New')));
+  var tbl = el('table', {},
+    el('thead', {}, el('tr', {},
+      el('th', {}, ''), el('th', {}, 'Name'), el('th', {}, 'Chem'), el('th', {}, 'Form'),
+      el('th', {}, 'Vnom'), el('th', {}, 'Cap'), el('th', {}, 'Mass'), el('th', {}, 'IR'), el('th', {}, 'Cost'), el('th', {}, ''))));
+  var tbody = el('tbody');
+  list.forEach(function(c) {
+    tbody.appendChild(el('tr', {},
+      el('td', {}, el('input', {type:'radio', name:'cellsel', checked: c.id === sel ? 'checked' : null, style:'width:auto', onchange: function() {
+        p.cellSelection.cellId = c.id;
+        p.cellSelection.cellSnapshot = JSON.parse(JSON.stringify(c));
+        touchProject(p); render(); toast('Selected ' + c.name, 'ok');
+      }})),
+      el('td', {}, c.name),
+      el('td', {}, c.chemistry || '—'),
+      el('td', {}, c.form || '—'),
+      el('td', {class:'num'}, fmt(c.vNom, 'V', 2)),
+      el('td', {class:'num'}, fmt(c.capacity, 'Ah', 1)),
+      el('td', {class:'num'}, fmt(c.mass, 'kg', 3)),
+      el('td', {class:'num'}, fmt(c.ir, 'mΩ', 2)),
+      el('td', {class:'num'}, '$' + num(c.cost, 2)),
+      el('td', {},
+        el('button', {class:'btn sm', onclick: function() { openCellEditor(c.id); }}, 'Edit'),
+        el('button', {class:'btn sm', style:'margin-left:4px', onclick: function() { duplicateCell(c.id); }}, 'Dup'))));
+  });
+  tbl.appendChild(tbody);
+  card.appendChild(el('div', {class:'overflow-x'}, tbl));
+  wrap.appendChild(card);
+  wrap.appendChild(el('div', {class:'flex', style:'justify-content:flex-end'},
+    el('button', {class:'btn primary', onclick: function() { navigate('electrical'); }}, 'Continue to Electrical →')));
+  root.appendChild(wrap);
+}
+function openCellEditor(cellId) {
+  var isNew = !cellId;
+  var base;
+  if (isNew) {
+    base = { id: uid(), name:'', application: getProject() ? getProject().kind : 'EV', chemistry:'', vNom:3.6, vMin:2.5, vMax:4.2,
+      capacity:10, mass:0.2, diameter:null, height:null, width:null, length:null, thickness:null, ir:20,
+      cRateContDis:2, cRatePulseDis:5, cRateContChg:1, cRatePulseChg:2, tempMin:-20, tempMax:60,
+      socMin:0.05, socMax:0.95, cycleLife:1000, cost:0, confidence:'low', notes:'', cp:1000, kRadial:1, kAxial:1.2 };
+  } else {
+    var found = null;
+    for (var i = 0; i < State.library.cells.length; i++) if (State.library.cells[i].id === cellId) found = State.library.cells[i];
+    if (!found) return;
+    base = JSON.parse(JSON.stringify(found));
+  }
+  var fields = [
+    ['name','Name','text'], ['application','Application','select:EV,BESS,Both'], ['chemistry','Chemistry','text'],
+    ['vNom','Vnom (V)','num'], ['vMin','Vmin (V)','num'], ['vMax','Vmax (V)','num'],
+    ['capacity','Capacity (Ah)','num'], ['mass','Mass (kg)','num'],
+    ['diameter','Diameter (mm)','num'], ['height','Height (mm)','num'], ['length','Length (mm)','num'],
+    ['width','Width (mm)','num'], ['thickness','Thickness (mm)','num'], ['ir','IR (mΩ)','num'],
+    ['cRateContDis','Cont. dis (C)','num'], ['cRatePulseDis','Pulse dis (C)','num'],
+    ['cRateContChg','Cont. chg (C)','num'], ['cRatePulseChg','Pulse chg (C)','num'],
+    ['tempMin','Temp min (°C)','num'], ['tempMax','Temp max (°C)','num'],
+    ['cycleLife','Cycle life','num'], ['cost','Cost (USD)','num'],
+    ['cp','Cp (J/kg·K)','num'], ['kRadial','k radial','num'], ['kAxial','k axial','num'],
+    ['confidence','Confidence','select:low,medium,high'], ['notes','Notes','text']
+  ];
+  var body = el('div', {class:'grid cols-2'});
+  var inputs = {};
+  fields.forEach(function(field) {
+    var key = field[0], label = field[1], type = field[2], inputEl;
+    if (type.indexOf('select:') === 0) {
+      var opts = type.slice(7).split(',');
+      inputEl = el('select', {}, ...opts.map(function(o) { return el('option', {value: o, selected: base[key] === o ? 'selected' : null}, o); }));
+    } else if (type === 'num') {
+      inputEl = el('input', {type:'number', step:'any', value: base[key] == null ? '' : base[key]});
+    } else {
+      inputEl = el('input', {type:'text', value: base[key] == null ? '' : base[key]});
+    }
+    inputs[key] = inputEl;
+    body.appendChild(el('div', {class:'field'}, el('label', {}, label), inputEl));
+  });
+  openModal('Cell record', body, [
+    {label:'Cancel', class:'btn'},
+    {label: isNew ? 'Create' : 'Save', class:'btn primary', onclick: function() {
+      var rec = {};
+      for (var kk in base) if (Object.prototype.hasOwnProperty.call(base, kk)) rec[kk] = base[kk];
+      fields.forEach(function(field) {
+        var key = field[0], type = field[2];
+        var v = inputs[key].value;
+        rec[key] = type === 'num' ? (v === '' ? null : parseFloat(v)) : v;
+      });
+      if (!rec.name) { toast('Name required', 'warn'); return; }
+      var idx = -1;
+      for (var j = 0; j < State.library.cells.length; j++) if (State.library.cells[j].id === rec.id) { idx = j; break; }
+      if (idx >= 0) State.library.cells[idx] = rec; else State.library.cells.push(rec);
+      saveLibrary(State.library); closeModal(); render();
+      toast(isNew ? 'Cell created' : 'Cell updated', 'ok');
+    }}
+  ]);
+}
+function duplicateCell(id) {
+  var found = null;
+  for (var i = 0; i < State.library.cells.length; i++) if (State.library.cells[i].id === id) found = State.library.cells[i];
+  if (!found) return;
+  var copy = JSON.parse(JSON.stringify(found));
+  copy.id = uid(); copy.name = found.name + ' (copy)';
+  State.library.cells.push(copy); saveLibrary(State.library); render(); toast('Duplicated', 'ok');
+}
+
+/* ============ Electrical ============ */
+function renderElectrical(root) {
+  var p = getProject();
+  var s = getSizing(p);
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Electrical Design'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Series / parallel sizing.'));
+  if (!s) {
+    wrap.appendChild(el('div', {class:'alert info'}, 'Select a cell in the Cell Database first.'));
+    root.appendChild(wrap); return;
+  }
+  var cell = s.cell;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Sizing'),
+    eqBlock('Series', 'N_s = round(V_target / V_cell,nom)', ['V_target = ' + num(s.targetVoltage, 1) + ' V', 'V_cell = ' + num(cell.vNom, 2) + ' V'], 'N_s = ' + s.Ns),
+    eqBlock('Parallel', 'N_p = ceil(E_target / (N_s × E_cell))', ['E_target = ' + num(s.targetEnergyKWh, 2) + ' kWh', 'E_cell = ' + num(cell.vNom * cell.capacity, 1) + ' Wh'], 'N_p = ' + s.Np),
+    el('div', {class:'grid cols-2'},
+      el('div', {class:'field'}, el('label', {}, 'Override N_s'),
+        el('input', {type:'number', step:'1', value: p.electrical.ns == null ? '' : p.electrical.ns, placeholder:'auto = ' + s.Ns, onchange: function(e) {
+          var v = e.target.value.trim(); p.electrical.ns = v === '' ? null : Math.max(1, Math.round(parseFloat(v))); touchProject(p); render();
+        }})),
+      el('div', {class:'field'}, el('label', {}, 'Override N_p'),
+        el('input', {type:'number', step:'1', value: p.electrical.np == null ? '' : p.electrical.np, placeholder:'auto = ' + s.Np, onchange: function(e) {
+          var v = e.target.value.trim(); p.electrical.np = v === '' ? null : Math.max(1, Math.round(parseFloat(v))); touchProject(p); render();
+        }})))));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Configuration'),
+    el('div', {class:'grid cols-4'},
+      stat('Config', s.Ns + 'S ' + s.Np + 'P'),
+      stat('Total cells', num(s.total, 0)),
+      stat('Vnom', num(s.packNominalV, 1) + ' V'),
+      stat('Energy', num(s.packEnergyKWh, 2) + ' kWh'),
+      stat('Capacity', num(s.packCapacityAh, 1) + ' Ah'),
+      stat('Mass', num(s.packMass_kg, 1) + ' kg'),
+      stat('Target energy', num(s.targetEnergyKWh, 2) + ' kWh'),
+      stat('Cell', s.cell.name))));
+  wrap.appendChild(buildCellGridPreview(s));
+  root.appendChild(wrap);
+}
+function buildCellGridPreview(s) {
+  // Draw the S/P cell topology as a grid of dots
+  var cols = Math.min(s.Ns, 40);
+  var rows = Math.min(s.Np, 20);
+  var cellW = 12, cellH = 12, gap = 3;
+  var W = cols * (cellW + gap) + 40;
+  var H = rows * (cellH + gap) + 60;
+  var svgEl = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  var x0 = 20, y0 = 30;
+  for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+    svgEl.appendChild(svg('rect', {
+      x: x0 + c * (cellW + gap), y: y0 + r * (cellH + gap),
+      width: cellW, height: cellH, rx: 2,
+      fill: '#a8c8e0', stroke: '#0d5c8f', 'stroke-width': 0.8
+    }));
+  }
+  svgEl.appendChild(svgText(x0, 18, 'Cell topology — ' + s.Ns + 'S × ' + s.Np + 'P', {size:'11', weight:'600', color:'#1c2530'}));
+  svgEl.appendChild(svgText(x0, H - 8, 'Each rectangle is one cell in the series/parallel matrix', {size:'9', color:'#8a95a1'}));
+  return el('div', {class:'card'}, el('h3', {}, 'Cell topology preview'), el('div', {class:'svg-box'}, svgEl));
+}
+
+/* ============ Layout — 2D + Isometric ============ */
+function computeLayout(p) {
+  var s = getSizing(p); if (!s) return null;
+  var cell = s.cell, L = p.layout;
+  var isCyl = !!cell.diameter;
+  var cellW = isCyl ? cell.diameter : (cell.thickness || cell.width || 20);
+  var cellH = isCyl ? cell.diameter : (cell.length || cell.height || 200);
+  var sp = L.cellSpacing_mm;
+  var perRow = Math.max(1, L.moduleCellsPerRow);
+  var moduleRows = Math.ceil(s.Ns / perRow);
+  var moduleW = perRow * (cellW + sp) - sp;
+  var moduleH = moduleRows * (cellH + sp) - sp;
+  var modulesPerRow = Math.max(1, L.modulesPerRow);
+  var layerRows = Math.ceil(s.Np / modulesPerRow);
+  var packW = modulesPerRow * (moduleW + 10) - 10;
+  var packH = layerRows * (moduleH + 10) - 10;
+  return { s: s, cell: cell, isCyl: isCyl, cellW: cellW, cellH: cellH, sp: sp, perRow: perRow,
+    moduleW: moduleW, moduleH: moduleH, modulesPerRow: modulesPerRow, layerRows: layerRows,
+    packW: packW, packH: packH };
+}
+function renderLayout(root) {
+  var p = getProject();
+  var L = computeLayout(p);
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Module & Pack Layout'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Parametric 2D top view and isometric renderer.'));
+  if (!L) { wrap.appendChild(el('div', {class:'alert info'}, 'Complete electrical sizing first.')); root.appendChild(wrap); return; }
+  var s = L.s;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Parameters'),
+    el('div', {class:'grid cols-4'},
+      fieldNum('Spacing (mm)', p.layout.cellSpacing_mm, function(v) { p.layout.cellSpacing_mm = v; touchProject(p); render(); }, '0.5'),
+      fieldNum('Cells/row', p.layout.moduleCellsPerRow, function(v) { p.layout.moduleCellsPerRow = Math.max(1, Math.round(v)); touchProject(p); render(); }, '1'),
+      fieldNum('Modules/row', p.layout.modulesPerRow, function(v) { p.layout.modulesPerRow = Math.max(1, Math.round(v)); touchProject(p); render(); }, '1'),
+      fieldNum('Layers', p.layout.layers, function(v) { p.layout.layers = Math.max(1, Math.round(v)); touchProject(p); render(); }, '1'))));
+
+  var svg2D = buildTopViewSVG(L);
+  var svgIso = buildIsometricSVG(L);
+
+  wrap.appendChild(el('div', {class:'layout-wrap'},
+    el('div', {class:'card'}, el('h3', {}, 'Top view (2D)'), el('div', {class:'svg-box'}, svg2D)),
+    el('div', {class:'card'}, el('h3', {}, 'Dimensions'),
+      el('div', {class:'kv'},
+        el('span', {class:'k'}, 'Pack W × H'), el('span', {class:'v'}, num(L.packW, 0) + ' × ' + num(L.packH, 0) + ' mm'),
+        el('span', {class:'k'}, 'Module W × H'), el('span', {class:'v'}, num(L.moduleW, 0) + ' × ' + num(L.moduleH, 0) + ' mm'),
+        el('span', {class:'k'}, 'Cell W × H'), el('span', {class:'v'}, num(L.cellW, 1) + ' × ' + num(L.cellH, 1) + ' mm'),
+        el('span', {class:'k'}, 'Modules'), el('span', {class:'v'}, String(s.Np)),
+        el('span', {class:'k'}, 'Cells/module'), el('span', {class:'v'}, String(s.Ns)),
+        el('span', {class:'k'}, 'Layers'), el('span', {class:'v'}, String(p.layout.layers)),
+        el('span', {class:'k'}, 'Cell mass'), el('span', {class:'v'}, num(s.packMass_kg, 1) + ' kg')))));
+
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Isometric view'),
+    el('div', {class:'iso-wrap'}, svgIso),
+    el('div', {class:'help-panel'}, 'Isometric renderer draws the pack as a stack of modules on a tray. Cells are drawn as small dots on the top surface. This is a visual aid, not a CAD model.')));
+  root.appendChild(wrap);
+}
+function buildTopViewSVG(L) {
+  var s = L.s;
+  var scale = Math.min(700 / Math.max(L.packW, 100), 500 / Math.max(L.packH, 100), 1.2);
+  var W = L.packW * scale + 40;
+  var H = L.packH * scale + 40;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  g.appendChild(svg('rect', {x: 20, y: 20, width: L.packW * scale, height: L.packH * scale, fill: 'none', stroke: '#0d5c8f', 'stroke-width': 2}));
+  var mIdx = 0;
+  for (var lr = 0; lr < L.layerRows; lr++) {
+    for (var mpr = 0; mpr < L.modulesPerRow; mpr++) {
+      if (mIdx >= s.Np) break;
+      var mx = 20 + mpr * (L.moduleW + 10) * scale;
+      var my = 20 + lr * (L.moduleH + 10) * scale;
+      g.appendChild(svg('rect', {x: mx, y: my, width: L.moduleW * scale, height: L.moduleH * scale, fill: '#e6f0f7', stroke: '#0d5c8f', 'stroke-width': 1}));
+      // module label
+      g.appendChild(svgText(mx + 4, my + 12, 'M' + (mIdx + 1) + ' (' + s.Ns + 'S)', {size:'9', color:'#0a4a73', mono:true}));
+      var ci = 0;
+      for (var r = 0; r < Math.ceil(s.Ns / L.perRow) && ci < s.Ns; r++) {
+        for (var c = 0; c < L.perRow && ci < s.Ns; c++) {
+          var cx = mx + c * (L.cellW + L.sp) * scale;
+          var cy = my + r * (L.cellH + L.sp) * scale;
+          if (L.isCyl) {
+            g.appendChild(svg('circle', {cx: cx + L.cellW * scale / 2, cy: cy + L.cellH * scale / 2, r: Math.max(2, L.cellW * scale / 2 - 1), fill: '#a8c8e0', stroke: '#0a4a73', 'stroke-width': 0.5}));
+          } else {
+            g.appendChild(svg('rect', {x: cx, y: cy, width: L.cellW * scale, height: L.cellH * scale, fill: '#a8c8e0', stroke: '#0a4a73', 'stroke-width': 0.5}));
+          }
+          ci++;
+        }
+      }
+      mIdx++;
+    }
+  }
+  g.appendChild(svgText(W / 2, H - 6, 'Pack: ' + num(L.packW, 0) + ' × ' + num(L.packH, 0) + ' mm · ' + s.Np + ' modules × ' + s.Ns + ' cells', {size:'10', color:'#5a6673', anchor:'middle', mono:true}));
+  return g;
+}
+function buildIsometricSVG(L) {
+  var s = L.s;
+  // Isometric projection
+  var iso = function(x, y, z) {
+    return {
+      x: (x - y) * Math.cos(Math.PI / 6),
+      y: (x + y) * Math.sin(Math.PI / 6) - z
+    };
+  };
+  // Determine drawing dimensions
+  var packDepth = 100 + Math.max(40, s.Np * 3);
+  var maxX = Math.max(L.packW, 400);
+  var maxY = Math.max(L.packH, 300);
+
+  // Get bounding box
+  var corners = [iso(0, 0, 0), iso(maxX, 0, 0), iso(0, maxY, 0), iso(maxX, maxY, 0), iso(0, 0, packDepth), iso(maxX, maxY, packDepth)];
+  var minX = Math.min.apply(null, corners.map(function(c) { return c.x; }));
+  var maxCornerX = Math.max.apply(null, corners.map(function(c) { return c.x; }));
+  var minY = Math.min.apply(null, corners.map(function(c) { return c.y; }));
+  var maxCornerY = Math.max.apply(null, corners.map(function(c) { return c.y; }));
+  var scale = Math.min(700 / (maxCornerX - minX), 500 / (maxCornerY - minY), 0.7);
+  var W = (maxCornerX - minX) * scale + 40;
+  var H = (maxCornerY - minY) * scale + 40;
+  var offsetX = -minX * scale + 20;
+  var offsetY = -minY * scale + 20;
+
+  function project(x, y, z) {
+    var p = iso(x, y, z);
+    return { x: p.x * scale + offsetX, y: p.y * scale + offsetY };
+  }
+  function poly(points3D, attrs) {
+    return svg('polygon', Object.assign({ points: points3D.map(function(pt) { return project(pt[0], pt[1], pt[2]).x + ',' + project(pt[0], pt[1], pt[2]).y; }).join(' ') }, attrs));
+  }
+
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  // Shadow / ground
+  g.appendChild(poly([[0, 0, 0], [maxX + 20, 0, 0], [maxX + 20, maxY + 20, 0], [0, maxY + 20, 0]], {fill: '#eef1f4', opacity: '0.6'}));
+
+  // Tray (bottom)
+  g.appendChild(poly([[0, 0, 0], [maxX, 0, 0], [maxX, maxY, 0], [0, maxY, 0]], {fill: '#6a7a8a', stroke: '#3d4854', 'stroke-width': 1}));
+  // Left face
+  g.appendChild(poly([[0, 0, 0], [0, maxY, 0], [0, maxY, packDepth], [0, 0, packDepth]], {fill: '#3d4854', stroke: '#2a333e', 'stroke-width': 1}));
+  // Right face
+  g.appendChild(poly([[maxX, 0, 0], [maxX, maxY, 0], [maxX, maxY, packDepth], [maxX, 0, packDepth]], {fill: '#4d5866', stroke: '#2a333e', 'stroke-width': 1}));
+  // Front face
+  g.appendChild(poly([[0, maxY, 0], [maxX, maxY, 0], [maxX, maxY, packDepth], [0, maxY, packDepth]], {fill: '#5a6673', stroke: '#2a333e', 'stroke-width': 1}));
+
+  // Top surface (cover)
+  g.appendChild(poly([[0, 0, packDepth], [maxX, 0, packDepth], [maxX, maxY, packDepth], [0, maxY, packDepth]], {fill: '#7a8b9e', stroke: '#3d4854', 'stroke-width': 1}));
+
+  // Modules on top
+  var cols = Math.min(s.Np, 6);
+  var rows = Math.ceil(s.Np / cols);
+  var modSpacingX = maxX / (cols + 0.5);
+  var modSpacingY = maxY / (rows + 0.5);
+  var modW = modSpacingX * 0.8;
+  var modH = modSpacingY * 0.8;
+  for (var i = 0; i < s.Np; i++) {
+    var mi = Math.floor(i / cols);
+    var mj = i % cols;
+    var mx = modSpacingX * (mj + 0.4);
+    var my = modSpacingY * (mi + 0.4);
+    var z = packDepth + 5;
+    // Module top
+    g.appendChild(poly([[mx, my, z], [mx + modW, my, z], [mx + modW, my + modH, z], [mx, my + modH, z]], {fill: '#a8c8e0', stroke: '#0d5c8f', 'stroke-width': 1}));
+    // Cell dots on module
+    var cellCols = Math.min(s.Ns, 4);
+    var cellRows = Math.ceil(s.Ns / cellCols);
+    for (var cr = 0; cr < cellRows; cr++) for (var cc = 0; cc < cellCols; cc++) {
+      if (cr * cellCols + cc >= s.Ns) break;
+      var cellX = mx + (modW / (cellCols + 1)) * (cc + 1);
+      var cellY = my + (modH / (cellRows + 1)) * (cr + 1);
+      var pt = project(cellX, cellY, z);
+      g.appendChild(svg('circle', {cx: pt.x, cy: pt.y, r: Math.max(1.5, 2.5 * scale), fill: '#0a4a73', opacity: '0.8'}));
+    }
+  }
+
+  // Labels
+  var labelPt = project(maxX / 2, maxY + 20, packDepth + 30);
+  g.appendChild(svgText(labelPt.x, labelPt.y, s.Np + ' modules · ' + s.total + ' cells', {size:'10', color:'#5a6673', anchor:'middle'}));
+
+  return g;
+}
+
+/* ============ Enclosure / Joining ============ */
+function estTrayMass(m, W, H) {
+  var d = m.tray.material.toLowerCase().indexOf('alum') >= 0 ? 2.70 : m.tray.material.toLowerCase().indexOf('steel') >= 0 ? 7.85 : 2.70;
+  var area = 2 * ((W + 40) * (H + 40)) + 2 * ((W + 40) + (H + 40)) * m.tray.depth;
+  return area * m.tray.thickness * d * 1e-6;
+}
+function estCoverMass(m, W, H) {
+  var d = m.cover.type === 'SMC' ? 1.9 : m.cover.type === 'Aluminum' ? 2.70 : m.cover.type === 'Steel' ? 7.85 : 1.2;
+  var a = (W + 40) * (H + 40);
+  return a * m.cover.thickness * d * 1e-6 * (1 + m.cover.ribs * 0.05);
+}
+function renderEnclosure(root) {
+  var p = getProject();
+  var L = computeLayout(p);
+  var m = p.mechanical;
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Enclosure & Structure'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Tray, cover, insulation.'));
+  var packW = L ? L.packW : 600;
+  var packH = L ? L.packH : 400;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Tray'),
+    el('div', {class:'grid cols-2'},
+      fieldText('Material', m.tray.material, function(v) { m.tray.material = v; touchProject(p); render(); }),
+      fieldNum('Depth (mm)', m.tray.depth, function(v) { m.tray.depth = v; touchProject(p); render(); }),
+      fieldNum('Thickness (mm)', m.tray.thickness, function(v) { m.tray.thickness = v; touchProject(p); render(); }, '0.1'),
+      fieldNum('Mount points', m.tray.mountingPoints, function(v) { m.tray.mountingPoints = Math.round(v); touchProject(p); render(); })),
+    el('div', {class:'kv'},
+      el('span', {class:'k'}, 'Footprint'), el('span', {class:'v'}, num(packW + 20, 0) + ' × ' + num(packH + 20, 0) + ' mm'),
+      el('span', {class:'k'}, 'Estimated mass'), el('span', {class:'v'}, num(estTrayMass(m, packW, packH), 2) + ' kg'))));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Cover'),
+    el('div', {class:'grid cols-2'},
+      el('div', {class:'field'}, el('label', {}, 'Type'),
+        el('select', {onchange: function(e) { m.cover.type = e.target.value; touchProject(p); render(); }},
+          ...['SMC','Aluminum','Steel','Polymer'].map(function(t) { return el('option', {value: t, selected: m.cover.type === t ? 'selected' : null}, t); }))),
+      fieldNum('Thickness (mm)', m.cover.thickness, function(v) { m.cover.thickness = v; touchProject(p); render(); }, '0.1'),
+      fieldNum('Ribs', m.cover.ribs, function(v) { m.cover.ribs = Math.round(v); touchProject(p); render(); }),
+      fieldNum('Inserts', m.cover.inserts, function(v) { m.cover.inserts = Math.round(v); touchProject(p); render(); })),
+    el('div', {class:'kv'},
+      el('span', {class:'k'}, 'Estimated mass'), el('span', {class:'v'}, num(estCoverMass(m, packW, packH), 2) + ' kg'))));
+  root.appendChild(wrap);
+}
+function renderJoining(root) {
+  var p = getProject();
+  var m = p.mechanical;
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Joining & Sealing'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Fasteners, gaskets, harness.'));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Fasteners'),
+    el('div', {class:'grid cols-2'},
+      fieldText('Main bolt', m.fasteners.mainBolt, function(v) { m.fasteners.mainBolt = v; touchProject(p); }),
+      fieldNum('Main qty', m.fasteners.mainQty, function(v) { m.fasteners.mainQty = Math.round(v); touchProject(p); render(); }),
+      fieldText('Module bolt', m.fasteners.moduleBolt, function(v) { m.fasteners.moduleBolt = v; touchProject(p); }),
+      fieldNum('Module qty', m.fasteners.moduleQty == null ? 0 : m.fasteners.moduleQty, function(v) { m.fasteners.moduleQty = Math.round(v); touchProject(p); render(); }),
+      fieldNum('Torque (N·m)', m.fasteners.torque_Nm, function(v) { m.fasteners.torque_Nm = v; touchProject(p); render(); }, '0.5'))));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Sealing'),
+    el('div', {class:'grid cols-2'},
+      fieldText('Gasket type', m.seal.type, function(v) { m.seal.type = v; touchProject(p); }),
+      fieldText('Profile', m.seal.profile, function(v) { m.seal.profile = v; touchProject(p); }),
+      fieldNum('Length (m)', m.seal.length_m, function(v) { m.seal.length_m = v; touchProject(p); render(); }, '0.1'),
+      fieldNum('Compression', m.seal.compression, function(v) { m.seal.compression = v; touchProject(p); render(); }, '0.01'))));
+  root.appendChild(wrap);
+}
+
+/* ============ Thermal ============ */
+function simulateThermal(p) {
+  var s = getSizing(p); if (!s) return null;
+  var T = p.thermal, cell = s.cell;
+  var cp = cell.cp || 1000;
+  var ir = cell.ir / 1000;
+  var currentPerCell_A = cell.capacity * T.dutyCRate;
+  var heatPerCell_W = currentPerCell_A * currentPerCell_A * ir;
+  var dt = T.timeStep_s;
+  var steps = Math.max(1, Math.round(T.duration_s / dt));
+  var temps = new Array(steps);
+  var t = T.initialTemp;
+  var A = estCellSurface_m2(cell);
+  var UA = 1 / (T.contactResistance_K_W + 1 / (T.htc_W_m2K * A));
+  var coolingActive = T.coolingType !== 'None';
+  for (var i = 0; i < steps; i++) {
+    var q = heatPerCell_W;
+    var dT = coolingActive ? (q - UA * (t - T.inletTemp)) / (cell.mass * cp) * dt : q / (cell.mass * cp) * dt;
+    t += dT;
+    if (!coolingActive) t -= (t - T.ambientTemp) * 0.0005 * dt;
+    temps[i] = t;
+  }
+  return { cell: cell, s: s, T: T, currentPerCell_A: currentPerCell_A, heatPerCell_W: heatPerCell_W, totalHeat_W: heatPerCell_W * s.total, temps: temps, dt: dt, peakTemp: Math.max.apply(null, temps), finalTemp: temps[temps.length - 1] };
+}
+function estCellSurface_m2(cell) {
+  if (cell.diameter && cell.height) {
+    var r = cell.diameter / 2000, h = cell.height / 1000;
+    return 2 * Math.PI * r * h + 2 * Math.PI * r * r;
+  }
+  var L = (cell.length || cell.height || 200) / 1000;
+  var W = (cell.width || 170) / 1000;
+  var T = (cell.thickness || 26) / 1000;
+  return 2 * (L * W + L * T + W * T);
+}
+function renderThermal(root) {
+  var p = getProject();
+  var s = getSizing(p);
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Thermal Management'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Reduced-order 1D lumped model, live heatmap and time-series plot.'));
+  wrap.appendChild(el('div', {class:'help-panel'}, el('b', {}, 'Model limits: '), 'Single-lump cell model; no intra-cell gradient, no module-to-module spread.'));
+  if (!s) { wrap.appendChild(el('div', {class:'alert info'}, 'Complete electrical sizing first.')); root.appendChild(wrap); return; }
+  var T = p.thermal;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Inputs'),
+    el('div', {class:'grid cols-3'},
+      el('div', {class:'field'}, el('label', {}, 'Cooling type'),
+        el('select', {onchange: function(e) { T.coolingType = e.target.value; touchProject(p); render(); }},
+          ...['None','Air','Liquid'].map(function(o) { return el('option', {value: o, selected: T.coolingType === o ? 'selected' : null}, o); }))),
+      fieldNum('Inlet (°C)', T.inletTemp, function(v) { T.inletTemp = v; touchProject(p); render(); }),
+      fieldNum('Ambient (°C)', T.ambientTemp, function(v) { T.ambientTemp = v; touchProject(p); render(); }),
+      fieldNum('Initial (°C)', T.initialTemp, function(v) { T.initialTemp = v; touchProject(p); render(); }),
+      fieldNum('HTC (W/m²·K)', T.htc_W_m2K, function(v) { T.htc_W_m2K = v; touchProject(p); render(); }, '10'),
+      fieldNum('Contact R (K/W)', T.contactResistance_K_W, function(v) { T.contactResistance_K_W = v; touchProject(p); render(); }, '0.05'),
+      fieldNum('Duration (s)', T.duration_s, function(v) { T.duration_s = v; touchProject(p); render(); }, '10'),
+      fieldNum('Time step (s)', T.timeStep_s, function(v) { T.timeStep_s = Math.max(0.5, v); touchProject(p); render(); }, '0.5'),
+      fieldNum('C-rate', T.dutyCRate, function(v) { T.dutyCRate = v; touchProject(p); render(); }, '0.1'))));
+  var r = simulateThermal(p);
+  if (r) {
+    wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Results'),
+      eqBlock('Cell current', 'I = capacity × C = ' + num(r.cell.capacity, 1) + ' × ' + T.dutyCRate + ' = ' + num(r.currentPerCell_A, 1) + ' A', null, ''),
+      eqBlock('Cell heat (I²R)', 'q = I² × R = ' + num(r.currentPerCell_A, 1) + '² × ' + num(r.cell.ir, 2) + ' mΩ = ' + num(r.heatPerCell_W, 2) + ' W', null, ''),
+      el('div', {class:'kv'},
+        el('span', {class:'k'}, 'Pack total heat'), el('span', {class:'v'}, num(r.totalHeat_W, 1) + ' W'),
+        el('span', {class:'k'}, 'Peak temp'), el('span', {class:'v ' + (r.peakTemp > (r.cell.tempMax - 5) ? 'warn' : 'ok')}, num(r.peakTemp, 1) + ' °C'),
+        el('span', {class:'k'}, 'Final temp'), el('span', {class:'v'}, num(r.finalTemp, 1) + ' °C'),
+        el('span', {class:'k'}, 'Cell max rated'), el('span', {class:'v'}, num(r.cell.tempMax, 0) + ' °C'))));
+    // Two-up visuals: heatmap + chart
+    var visualGrid = el('div', {class:'overview-visual'});
+    visualGrid.appendChild(el('div', {class:'visual-tile'},
+      el('div', {class:'small muted', style:'margin-bottom:6px'}, 'Pack heatmap — module temperatures'),
+      buildHeatmapSVG(r)));
+    visualGrid.appendChild(el('div', {class:'visual-tile'},
+      el('div', {class:'small muted', style:'margin-bottom:6px'}, 'Temperature vs time'),
+      buildThermalChart(r)));
+    wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Visualisation'), visualGrid));
+  }
+  root.appendChild(wrap);
+}
+function buildThermalChart(r) {
+  var W = 560, H = 240, padL = 45, padR = 20, padT = 20, padB = 30;
+  var innerW = W - padL - padR, innerH = H - padT - padB;
+  var temps = r.temps;
+  var minT = Math.min.apply(null, temps);
+  var yMin = Math.min(minT, r.T.inletTemp) - 3;
+  var yMax = Math.max(Math.max.apply(null, temps), r.cell.tempMax) + 3;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  // Grid
+  for (var i = 0; i <= 4; i++) {
+    var yy = padT + (innerH * i / 4);
+    g.appendChild(svg('line', {x1: padL, x2: W - padR, y1: yy, y2: yy, stroke: '#eef1f4'}));
+    g.appendChild(svgText(padL - 4, yy + 3, (yMax - (yMax - yMin) * i / 4).toFixed(0) + '°', {size:'9', anchor:'end', mono:true}));
+  }
+  // Max-temp reference line
+  var refY = padT + innerH - ((r.cell.tempMax - yMin) / (yMax - yMin)) * innerH;
+  g.appendChild(svg('line', {x1: padL, x2: W - padR, y1: refY, y2: refY, stroke: '#b42318', 'stroke-dasharray': '4 3'}));
+  g.appendChild(svgText(W - padR - 4, refY - 3, 'max ' + r.cell.tempMax + '°C', {size:'9', color:'#b42318', anchor:'end'}));
+  // Polyline
+  var pts = [];
+  for (var j = 0; j < temps.length; j++) {
+    var x = padL + (j / (temps.length - 1)) * innerW;
+    var y = padT + innerH - ((temps[j] - yMin) / (yMax - yMin)) * innerH;
+    pts.push(x + ',' + y);
+  }
+  g.appendChild(svg('polyline', {points: pts.join(' '), fill: 'none', stroke: '#0d5c8f', 'stroke-width': 2}));
+  // Axes labels
+  g.appendChild(svgText(W / 2, H - 6, 'time (s) — total ' + ((temps.length - 1) * r.dt).toFixed(0) + ' s', {size:'10', anchor:'middle', mono:true}));
+  g.appendChild(svgText(14, H / 2, 'T (°C)', {size:'10', anchor:'middle', color:'#5a6673'}));
+  return g;
+}
+function buildHeatmapSVG(r) {
+  var cols = Math.min(r.s.Np, 8);
+  var rows = Math.ceil(r.s.Np / cols);
+  var cellW = 44, cellH = 44, gap = 6;
+  var W = cols * (cellW + gap) + 20;
+  var H = rows * (cellH + gap) + 50;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  // Color scale: interpolate from cool (blue) to hot (red)
+  function heatColor(t01) {
+    var r1 = Math.round(90 + t01 * 165);
+    var g1 = Math.round(150 - t01 * 130);
+    var b1 = Math.round(200 - t01 * 180);
+    return 'rgb(' + r1 + ',' + g1 + ',' + b1 + ')';
+  }
+  var tMin = r.T.inletTemp;
+  var tMax = Math.max(r.cell.tempMax, r.peakTemp);
+  for (var i = 0; i < r.s.Np; i++) {
+    var ci = i % cols;
+    var ri = Math.floor(i / cols);
+    var x = 10 + ci * (cellW + gap);
+    var y = 30 + ri * (cellH + gap);
+    // Simulate module-average temperature with slight variation
+    var modTemp = r.T.inletTemp + (r.peakTemp - r.T.inletTemp) * (1 - ci / cols * 0.3);
+    var t01 = (modTemp - tMin) / Math.max(tMax - tMin, 1);
+    g.appendChild(svg('rect', {x: x, y: y, width: cellW, height: cellH, rx: 4, fill: heatColor(t01), stroke: '#fff', 'stroke-width': 2}));
+    g.appendChild(svgText(x + cellW / 2, y + cellH / 2 + 3, 'M' + (i + 1), {size:'10', anchor:'middle', color:'#fff', weight:'600'}));
+    g.appendChild(svgText(x + cellW / 2, y + cellH - 4, modTemp.toFixed(0) + '°', {size:'8', anchor:'middle', color:'#fff', mono:true}));
+  }
+  // Legend
+  var legY = H - 12;
+  var lx = 10;
+  for (var s1 = 0; s1 < 20; s1++) {
+    g.appendChild(svg('rect', {x: lx + s1 * 8, y: legY - 6, width: 8, height: 8, fill: heatColor(s1 / 19)}));
+  }
+  g.appendChild(svgText(lx, legY - 10, 'Cool', {size:'9'}));
+  g.appendChild(svgText(lx + 160, legY - 10, 'Hot', {size:'9'}));
+  return g;
+}
+
+/* ============ Coolant ============ */
+function coolantProps(c) {
+  if (c === 'Water') return { rho: 998, mu: 0.001 };
+  if (c === 'Water-Glycol 50/50') return { rho: 1050, mu: 0.0025 };
+  if (c === 'Air') return { rho: 1.2, mu: 1.8e-5 };
+  return { rho: 1050, mu: 0.0025 };
+}
+function solveHydraulic(c) {
+  var p = coolantProps(c.coolant);
+  var Q = (c.pump.designFlow_Lpm || 0) / 60000;
+  var dP = 0;
+  var Qeach = c.segments.length ? Q / Math.sqrt(c.segments.length) : 0;
+  for (var i = 0; i < c.segments.length; i++) {
+    var seg = c.segments[i];
+    var D = seg.diameter_mm / 1000;
+    var A = Math.PI * D * D / 4;
+    var v = Qeach / A;
+    var Re = p.rho * v * D / p.mu;
+    var f = Re < 2300 ? 64 / Math.max(Re, 1) : 0.316 * Math.pow(Re, -0.25);
+    dP += f * (seg.length_m / D) * p.rho * v * v / 2 + seg.minorLossK * p.rho * v * v / 2;
+  }
+  return { Q_Lpm: c.pump.designFlow_Lpm, dP_kPa: dP / 1000, dP_m: dP / (p.rho * 9.81), power_W: dP * Q / 0.5, rho: p.rho, mu: p.mu };
+}
+function renderCoolant(root) {
+  var p = getProject();
+  var c = p.coolant;
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Coolant Flow Designer'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Flow segments and pump sizing. Live schematic.'));
+  var card = el('div', {class:'card'}, el('h3', {}, 'Segments',
+    el('button', {class:'btn sm', onclick: function() {
+      c.segments.push({ id: uid(), name: 'Segment', type: 'Straight pipe', length_m: 1, diameter_mm: 12, minorLossK: 2 });
+      touchProject(p); render();
+    }}, '+ Add')));
+  if (c.segments.length === 0) {
+    card.appendChild(el('div', {class:'alert info'}, 'No segments yet.'));
+  } else {
+    var tbl = el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, 'Name'), el('th', {}, 'Type'), el('th', {}, 'L (m)'), el('th', {}, 'Ø (mm)'), el('th', {}, 'K'), el('th', {}, ''))));
+    var tbody = el('tbody');
+    c.segments.forEach(function(seg, i) {
+      tbody.appendChild(el('tr', {},
+        el('td', {}, el('input', {type:'text', value: seg.name, onchange: function(e) { seg.name = e.target.value; touchProject(p); }})),
+        el('td', {}, el('select', {onchange: function(e) { seg.type = e.target.value; touchProject(p); }},
+          ...['Straight pipe','Manifold','Cold plate','Fitting','Pump','Return'].map(function(t) { return el('option', {value: t, selected: seg.type === t ? 'selected' : null}, t); }))),
+        el('td', {}, el('input', {type:'number', step:'0.1', value: seg.length_m, onchange: function(e) { seg.length_m = readNum(e); touchProject(p); render(); }})),
+        el('td', {}, el('input', {type:'number', step:'0.5', value: seg.diameter_mm, onchange: function(e) { seg.diameter_mm = readNum(e); touchProject(p); render(); }})),
+        el('td', {}, el('input', {type:'number', step:'0.1', value: seg.minorLossK, onchange: function(e) { seg.minorLossK = readNum(e); touchProject(p); render(); }})),
+        el('td', {}, el('button', {class:'btn sm danger', onclick: function() { c.segments.splice(i, 1); touchProject(p); render(); }}, '×'))));
+    });
+    tbl.appendChild(tbody);
+    card.appendChild(tbl);
+  }
+  wrap.appendChild(card);
+
+  // Schematic
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Schematic'),
+    el('div', {class:'svg-box'}, buildCoolantSchematic(c, solveHydraulic(c)))));
+
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Pump'),
+    el('div', {class:'grid cols-3'},
+      fieldText('Name', c.pump.name, function(v) { c.pump.name = v; touchProject(p); }),
+      fieldNum('Flow (L/min)', c.pump.designFlow_Lpm, function(v) { c.pump.designFlow_Lpm = v; touchProject(p); render(); }, '0.5'),
+      fieldNum('Head (m)', c.pump.head_m, function(v) { c.pump.head_m = v; touchProject(p); render(); }, '0.5'))));
+  var h = solveHydraulic(c);
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Solution'),
+    el('div', {class:'kv'},
+      el('span', {class:'k'}, 'Flow'), el('span', {class:'v'}, num(h.Q_Lpm, 2) + ' L/min'),
+      el('span', {class:'k'}, 'ΔP'), el('span', {class:'v'}, num(h.dP_kPa, 2) + ' kPa (' + num(h.dP_m, 2) + ' m)'),
+      el('span', {class:'k'}, 'Pump head'), el('span', {class:'v'}, num(c.pump.head_m, 2) + ' m'),
+      el('span', {class:'k'}, 'Power'), el('span', {class:'v'}, num(h.power_W, 1) + ' W'),
+      el('span', {class:'k'}, 'Check'), el('span', {class:'v ' + (h.dP_m <= c.pump.head_m ? 'ok' : 'warn')}, h.dP_m <= c.pump.head_m ? 'PASS' : 'undersized'))));
+  root.appendChild(wrap);
+}
+function buildCoolantSchematic(c, h) {
+  var W = 780, H = 260;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  // Background
+  g.appendChild(svg('rect', {x: 0, y: 0, width: W, height: H, fill: '#fafbfc'}));
+  // Pump block
+  g.appendChild(svg('rect', {x: 30, y: 100, width: 90, height: 60, rx: 6, fill: '#e6f0f7', stroke: '#0d5c8f', 'stroke-width': 2}));
+  g.appendChild(svgText(75, 125, 'PUMP', {size:'12', anchor:'middle', weight:'600', color:'#0d5c8f'}));
+  g.appendChild(svgText(75, 143, c.pump.designFlow_Lpm + ' L/min', {size:'10', anchor:'middle', mono:true, color:'#0a4a73'}));
+  // Arrow (flow direction)
+  g.appendChild(svg('polygon', {points: '120,130 140,120 140,140', fill: '#0d5c8f'}));
+  // Distribution manifold
+  var manX = 200, manY = 60, manW = 40, manH = 140;
+  g.appendChild(svg('rect', {x: manX, y: manY, width: manW, height: manH, rx: 4, fill: '#fff8e5', stroke: '#9a6700', 'stroke-width': 2}));
+  g.appendChild(svgText(manX + manW / 2, manY - 6, 'MANIFOLD', {size:'9', anchor:'middle', weight:'600', color:'#7a5200'}));
+  // Supply arrow
+  g.appendChild(svg('line', {x1: 140, x2: manX, y1: 130, y2: 130, stroke: '#0d5c8f', 'stroke-width': 3}));
+  // Cold plate channels
+  var cpsX = 300, cpsW = 200, cpsH = 40;
+  var rows = Math.min(c.segments.filter(function(s) { return s.type === 'Cold plate' || s.type === 'Straight pipe'; }).length, 3);
+  if (rows === 0) rows = 1;
+  for (var i = 0; i < rows; i++) {
+    var cy = manY + (i + 1) * (manH / (rows + 1)) - cpsH / 2;
+    // connection
+    g.appendChild(svg('line', {x1: manX + manW, x2: cpsX, y1: cy + cpsH / 2, y2: cy + cpsH / 2, stroke: '#0d5c8f', 'stroke-width': 2}));
+    // cold plate box
+    g.appendChild(svg('rect', {x: cpsX, y: cy, width: cpsW, height: cpsH, rx: 3, fill: '#e6f0f7', stroke: '#0d5c8f', 'stroke-width': 1.5}));
+    g.appendChild(svgText(cpsX + cpsW / 2, cy + cpsH / 2 + 4, 'Cold plate ' + (i + 1), {size:'10', anchor:'middle', color:'#0a4a73'}));
+    // serpentine channels (decorative)
+    for (var j = 1; j < 4; j++) {
+      g.appendChild(svg('line', {x1: cpsX + j * cpsW / 4, x2: cpsX + j * cpsW / 4, y1: cy + 4, y2: cy + cpsH - 4, stroke: '#a8c8e0', 'stroke-width': 1, 'stroke-dasharray': '2 2'}));
+    }
+    // return connection
+    var retManX = 560;
+    g.appendChild(svg('line', {x1: cpsX + cpsW, x2: retManX, y1: cy + cpsH / 2, y2: cy + cpsH / 2, stroke: '#c0392b', 'stroke-width': 2, 'stroke-dasharray': '5 3'}));
+  }
+  // Return manifold
+  g.appendChild(svg('rect', {x: 560, y: manY, width: manW, height: manH, rx: 4, fill: '#fdecea', stroke: '#c0392b', 'stroke-width': 2}));
+  g.appendChild(svgText(580, manY - 6, 'RETURN', {size:'9', anchor:'middle', weight:'600', color:'#8c1c10'}));
+  // Return to pump
+  g.appendChild(svg('line', {x1: 560, x2: 75, y1: 220, y2: 220, stroke: '#c0392b', 'stroke-width': 3, 'stroke-dasharray': '5 3'}));
+  g.appendChild(svg('line', {x1: 75, x2: 75, y1: 220, y2: 160, stroke: '#c0392b', 'stroke-width': 3, 'stroke-dasharray': '5 3'}));
+  // Legend
+  g.appendChild(svgText(30, 245, '→ supply', {size:'10', color:'#0d5c8f', mono:true}));
+  g.appendChild(svgText(140, 245, '⟵ return', {size:'10', color:'#c0392b', mono:true}));
+  g.appendChild(svgText(260, 245, 'ΔP total: ' + h.dP_kPa.toFixed(1) + ' kPa', {size:'10', color:'#5a6673', mono:true}));
+  g.appendChild(svgText(460, 245, 'Pump head: ' + c.pump.head_m + ' m', {size:'10', color:'#5a6673', mono:true}));
+  return g;
+}
+
+/* ============ BMS ============ */
+function renderBMS(root) {
+  var p = getProject();
+  var s = getSizing(p);
+  var b = p.bms;
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'BMS & Safety'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Measurement channels, protection thresholds.'));
+  wrap.appendChild(el('div', {class:'help-panel'}, el('b', {}, 'No certification claim: '), 'Consistency checks only. Actual safety requires physical test evidence per UNECE R100 / UL 9540A / IEC 62619.'));
+  if (s) {
+    if (b.voltageChannels == null) b.voltageChannels = s.Ns;
+    if (b.tempChannels == null) b.tempChannels = Math.max(4, s.Np * 2);
+    if (b.packOvervoltage == null) b.packOvervoltage = s.packMaxV * 0.98;
+    if (b.packUndervoltage == null) b.packUndervoltage = s.packMinV * 1.02;
+    if (b.overcurrentDis == null) b.overcurrentDis = s.packCapacityAh * s.cell.cRatePulseDis * 0.9;
+    if (b.overcurrentChg == null) b.overcurrentChg = s.packCapacityAh * s.cell.cRatePulseChg * 0.9;
+  }
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'BMS architecture'),
+    el('div', {class:'grid cols-2'},
+      el('div', {class:'field'}, el('label', {}, 'Architecture'),
+        el('select', {onchange: function(e) { b.architecture = e.target.value; touchProject(p); render(); }},
+          ...['Centralized','Distributed','Modular'].map(function(o) { return el('option', {value: o, selected: b.architecture === o ? 'selected' : null}, o); }))),
+      fieldNum('Voltage channels', b.voltageChannels, function(v) { b.voltageChannels = Math.round(v); touchProject(p); render(); }),
+      fieldNum('Temperature channels', b.tempChannels, function(v) { b.tempChannels = Math.round(v); touchProject(p); render(); }))));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Protection thresholds'),
+    el('div', {class:'grid cols-2'},
+      fieldNum('Cell Vmax (V)', b.cellVmax, function(v) { b.cellVmax = v; touchProject(p); render(); }, '0.01'),
+      fieldNum('Cell Vmin (V)', b.cellVmin, function(v) { b.cellVmin = v; touchProject(p); render(); }, '0.01'),
+      fieldNum('Pack OV (V)', b.packOvervoltage, function(v) { b.packOvervoltage = v; touchProject(p); render(); }, '1'),
+      fieldNum('Pack UV (V)', b.packUndervoltage, function(v) { b.packUndervoltage = v; touchProject(p); render(); }, '1'),
+      fieldNum('Overcurrent chg (A)', b.overcurrentChg, function(v) { b.overcurrentChg = v; touchProject(p); render(); }, '1'),
+      fieldNum('Overcurrent dis (A)', b.overcurrentDis, function(v) { b.overcurrentDis = v; touchProject(p); render(); }, '1'),
+      fieldNum('Over-temp chg (°C)', b.overTempChg, function(v) { b.overTempChg = v; touchProject(p); render(); }),
+      fieldNum('Over-temp dis (°C)', b.overTempDis, function(v) { b.overTempDis = v; touchProject(p); render(); }))));
+  if (s) {
+    // Protective envelope visual
+    var checks = [
+      { label: 'Cell voltage window', ok: s.cell.vMin <= s.cell.vNom && s.cell.vNom <= s.cell.vMax, detail: s.cell.vMin + ' / ' + s.cell.vNom + ' / ' + s.cell.vMax + ' V' },
+      { label: 'Pack voltage window', ok: s.packMinV <= s.packNominalV && s.packNominalV <= s.packMaxV, detail: s.packMinV.toFixed(0) + ' / ' + s.packNominalV.toFixed(0) + ' / ' + s.packMaxV.toFixed(0) + ' V' },
+      { label: 'Voltage channels cover Ns', ok: b.voltageChannels >= s.Ns, detail: b.voltageChannels + ' ch vs ' + s.Ns + ' cells' },
+      { label: 'Temp channels present', ok: b.tempChannels >= 1, detail: b.tempChannels + ' channels' },
+      { label: 'Overvoltage threshold set', ok: b.packOvervoltage != null && b.packOvervoltage > 0, detail: b.packOvervoltage ? b.packOvervoltage.toFixed(0) + ' V' : 'not set' },
+      { label: 'Undervoltage threshold set', ok: b.packUndervoltage != null && b.packUndervoltage > 0, detail: b.packUndervoltage ? b.packUndervoltage.toFixed(0) + ' V' : 'not set' }
+    ];
+    var gaugeWrap = el('div', {});
+    checks.forEach(function(c) {
+      gaugeWrap.appendChild(el('div', {style:'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eef1f4;font-size:11.5px'},
+        el('span', {style:'width:10px;height:10px;border-radius:50%;background:' + (c.ok ? 'var(--ok)' : 'var(--warn)')}),
+        el('span', {style:'flex:1'}, c.label),
+        el('span', {style:'font-family:var(--mono);color:var(--text-muted)'}, c.detail)));
+    });
+    wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Consistency checks'), gaugeWrap));
+  }
+  root.appendChild(wrap);
+}
+
+/* ============ Simulation ============ */
+function runElectricalSim(p) {
+  var s = getSizing(p); if (!s) return null;
+  var sim = p.simulation;
+  var cell = s.cell;
+  var dt = sim.timeStep_s;
+  var steps = Math.max(1, Math.round(sim.duration_s / dt));
+  var packR = cell.ir * s.Ns / s.Np / 1000;
+  var soc = sim.initialSOC;
+  var socs = [], voltages = [], currents = [], heats = [], times = [];
+  var vLast = s.packNominalV;
+  for (var i = 0; i < steps; i++) {
+    var current = (sim.loadValue * 1000) / Math.max(vLast, 1);
+    var v = s.packNominalV - current * packR;
+    vLast = v;
+    var dE = sim.loadValue * 1000 * (dt / 3600);
+    var dSOC = dE / (s.packEnergyKWh * 1000);
+    soc -= dSOC;
+    if (soc < 0) soc = 0;
+    var cellI = current / s.Np;
+    var hpc = cellI * cellI * (cell.ir / 1000);
+    socs.push(soc); voltages.push(v); currents.push(current); heats.push(hpc * s.total); times.push(i * dt);
+    if (soc <= 0) break;
+  }
+  return { s: s, cell: cell, sim: sim, dt: dt, socs: socs, voltages: voltages, currents: currents, heats: heats, times: times };
+}
+function renderSimulation(root) {
+  var p = getProject();
+  var s = getSizing(p);
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Simulation Centre'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Reduced-order simulations with SOC, voltage and heat traces.'));
+  wrap.appendChild(el('div', {class:'help-panel'}, el('b', {}, 'Model limits: '), 'Lumped R model, no OCV curve, no thermal-electrical coupling.'));
+  if (!s) { wrap.appendChild(el('div', {class:'alert info'}, 'Complete electrical sizing first.')); root.appendChild(wrap); return; }
+  var sim = p.simulation;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Scenario'),
+    el('div', {class:'grid cols-3'},
+      fieldNum('Load (kW)', sim.loadValue, function(v) { sim.loadValue = v; touchProject(p); render(); }, '1'),
+      fieldNum('Duration (s)', sim.duration_s, function(v) { sim.duration_s = v; touchProject(p); render(); }, '10'),
+      fieldNum('Time step (s)', sim.timeStep_s, function(v) { sim.timeStep_s = Math.max(1, v); touchProject(p); render(); }, '1'),
+      fieldNum('Initial SOC', sim.initialSOC, function(v) { sim.initialSOC = Math.max(0, Math.min(1, v)); touchProject(p); render(); }, '0.05'))));
+
+  // Live preview
+  var preview = runElectricalSim(p);
+  if (preview) {
+    wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Live preview (not yet saved)'),
+      el('div', {class:'grid cols-4'},
+        stat('Final SOC', num(preview.socs[preview.socs.length - 1] * 100, 1) + ' %'),
+        stat('Min voltage', num(Math.min.apply(null, preview.voltages), 1) + ' V'),
+        stat('Max current', num(Math.max.apply(null, preview.currents), 1) + ' A'),
+        stat('Peak heat', num(Math.max.apply(null, preview.heats), 0) + ' W')),
+      el('div', {class:'chart-box mt-12'}, buildSimChart(preview))));
+  }
+
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Save this run'),
+    el('div', {class:'flex'},
+      el('button', {class:'btn primary', onclick: function() {
+        var r = runElectricalSim(p);
+        if (!r) return;
+        var run = {
+          id: uid(), when: nowISO(), model: 'Electrical (constant power)',
+          inputs: { loadValue: sim.loadValue, duration_s: sim.duration_s, dt: sim.timeStep_s, initialSOC: sim.initialSOC },
+          summary: {
+            finalSOC: r.socs[r.socs.length - 1],
+            minVoltage: Math.min.apply(null, r.voltages),
+            maxCurrent: Math.max.apply(null, r.currents),
+            peakHeat_W: Math.max.apply(null, r.heats)
+          }
+        };
+        sim.runs.unshift(run);
+        if (sim.runs.length > 20) sim.runs = sim.runs.slice(0, 20);
+        touchProject(p); render(); toast('Simulation run saved', 'ok');
+      }}, 'Save run'))));
+
+  if (sim.runs.length) {
+    var hist = el('div', {class:'card'}, el('h3', {}, 'History (' + sim.runs.length + ')'));
+    sim.runs.forEach(function(r, idx) {
+      hist.appendChild(el('div', {class:'run-row'},
+        el('span', {class:'when'}, new Date(r.when).toLocaleString()),
+        el('span', {class:'what'}, r.model + ' · ' + r.inputs.duration_s + 's @ ' + r.inputs.loadValue + 'kW'),
+        el('span', {class:'result'}, 'final SOC ' + num(r.summary.finalSOC * 100, 1) + '%'),
+        el('button', {class:'btn sm danger', onclick: function() { sim.runs.splice(idx, 1); touchProject(p); render(); }}, 'Del')));
+    });
+    wrap.appendChild(hist);
+  }
+  root.appendChild(wrap);
+}
+function buildSimChart(run) {
+  var W = 720, H = 260, padL = 45, padR = 45, padT = 20, padB = 30;
+  var innerW = W - padL - padR, innerH = H - padT - padB;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  // Grid
+  for (var i = 0; i <= 4; i++) {
+    var yy = padT + (innerH * i / 4);
+    g.appendChild(svg('line', {x1: padL, x2: W - padR, y1: yy, y2: yy, stroke: '#eef1f4'}));
+    g.appendChild(svgText(padL - 4, yy + 3, (100 - i * 25) + '%', {size:'9', anchor:'end', mono:true}));
+  }
+  var n = run.socs.length;
+  var socPts = [], vPts = [];
+  var vMin = Math.min.apply(null, run.voltages), vMax = Math.max.apply(null, run.voltages);
+  for (var j = 0; j < n; j++) {
+    var x = padL + (j / Math.max(n - 1, 1)) * innerW;
+    socPts.push(x + ',' + (padT + innerH - run.socs[j] * innerH));
+    vPts.push(x + ',' + (padT + innerH - ((run.voltages[j] - vMin) / Math.max(vMax - vMin, 0.1)) * innerH));
+  }
+  // SOC line
+  g.appendChild(svg('polyline', {points: socPts.join(' '), fill: 'none', stroke: '#0d5c8f', 'stroke-width': 2.5}));
+  // Voltage line
+  g.appendChild(svg('polyline', {points: vPts.join(' '), fill: 'none', stroke: '#9a6700', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'}));
+  // Legend
+  g.appendChild(svg('line', {x1: padL + 8, x2: padL + 30, y1: 12, y2: 12, stroke: '#0d5c8f', 'stroke-width': 2.5}));
+  g.appendChild(svgText(padL + 36, 15, 'SOC (%)', {size:'10'}));
+  g.appendChild(svg('line', {x1: padL + 110, x2: padL + 132, y1: 12, y2: 12, stroke: '#9a6700', 'stroke-width': 1.5, 'stroke-dasharray': '4 3'}));
+  g.appendChild(svgText(padL + 138, 15, 'Voltage (V)', {size:'10'}));
+  // Axis labels
+  g.appendChild(svgText(W / 2, H - 6, 'time (s)', {size:'10', anchor:'middle', mono:true}));
+  return g;
+}
+
+/* ============ Testing ============ */
+var STANDARDS = {
+  'UNECE R100': { appliesTo: ['EV'], tests: ['Vibration','Thermal shock','Mechanical shock','Fire resistance','Overcharge','Over-discharge','External short circuit','Overheat','Isolation','Water immersion'] },
+  'SAE J2464': { appliesTo: ['EV','BESS'], tests: ['Nail penetration','Thermal propagation','Crush','Overcharge','Over-discharge','Short circuit','Altitude','Salt spray'] },
+  'UL 9540A': { appliesTo: ['BESS'], tests: ['Cell-level thermal runaway','Module-level propagation','Unit-level fire','Installation-level fire','Gas analysis'] },
+  'IEC 62619': { appliesTo: ['BESS'], tests: ['External short','Impact','Drop','Overcharge','Over-discharge','Thermal abuse','Internal short','Propagation'] },
+  'IEC 62133': { appliesTo: ['EV','BESS'], tests: ['Charge','Discharge','Vibration','Shock','Temperature cycling','Crush','Drop','Short'] }
+};
+function renderTesting(root) {
+  var p = getProject();
+  var t = p.testing;
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Testing & Validation'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Track test cases and evidence.'));
+  wrap.appendChild(el('div', {class:'help-panel'}, el('b', {}, 'Not a certification: '), 'Certification requires accredited lab testing.'));
+  var stdOptions = Object.keys(STANDARDS);
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Applicable standards'),
+    el('div', {class:'grid cols-2'},
+      el('div', {class:'field'}, el('label', {}, 'Primary standard'),
+        el('select', {onchange: function(e) {
+          t.standard = e.target.value || null;
+          if (t.standard) loadTestsFromStandard(t, p.kind);
+          touchProject(p); render();
+        }},
+          el('option', {value:'', selected: t.standard === null ? 'selected' : null}, '— none —'),
+          ...stdOptions.map(function(st) { return el('option', {value: st, selected: t.standard === st ? 'selected' : null}, st); }))),
+      el('div', {class:'field'}, el('label', {}, 'Evidence notes'),
+        el('input', {type:'text', value: t.evidence || '', onchange: function(e) { t.evidence = e.target.value; touchProject(p); }})))));
+  if (t.tests.length) {
+    var total = t.tests.length;
+    var passed = t.tests.filter(function(x) { return x.status === 'passed'; }).length;
+    var pct = total > 0 ? (passed / total) * 100 : 0;
+    var card = el('div', {class:'card'}, el('h3', {}, 'Progress'));
+    card.appendChild(buildGauge(pct, passed + ' / ' + total));
+    card.appendChild(el('div', {class:'mt-12'},
+      el('table', {},
+        el('thead', {}, el('tr', {}, el('th', {}, '✓'), el('th', {}, 'Test'), el('th', {}, 'Ref'), el('th', {}, 'Status'), el('th', {}, ''))),
+        el('tbody', {}, ...t.tests.map(function(test, i) {
+          return el('tr', {},
+            el('td', {}, el('input', {type:'checkbox', checked: test.status === 'passed' ? 'checked' : null, style:'width:auto', onchange: function(e) {
+              test.status = e.target.checked ? 'passed' : 'planned';
+              touchProject(p); render();
+            }})),
+            el('td', {}, el('input', {type:'text', value: test.name, onchange: function(e) { test.name = e.target.value; touchProject(p); }})),
+            el('td', {}, el('input', {type:'text', value: test.ref || '', onchange: function(e) { test.ref = e.target.value; touchProject(p); }})),
+            el('td', {}, el('span', {class:'chip ' + (test.status === 'passed' ? 'ok' : test.status === 'failed' ? 'err' : 'muted')}, test.status)),
+            el('td', {}, el('button', {class:'btn sm danger', onclick: function() { t.tests.splice(i, 1); touchProject(p); render(); }}, '×')));
+        })))));
+    wrap.appendChild(card);
+  } else {
+    wrap.appendChild(el('div', {class:'card'}, el('div', {class:'empty-state'},
+      el('h3', {}, 'No test plan yet'),
+      el('p', {}, 'Choose a primary standard above to auto-load typical tests.'))));
+  }
+  root.appendChild(wrap);
+}
+function buildGauge(pct, label) {
+  var W = 160, H = 100, r = 60, cx = 80, cy = 80;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  var startAngle = Math.PI, endAngle = 0;
+  var arcLength = Math.PI * r;
+  var filled = (pct / 100) * arcLength;
+  // Background
+  g.appendChild(svg('path', {
+    d: 'M ' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + (cx + r) + ' ' + cy,
+    fill: 'none', stroke: '#eef1f4', 'stroke-width': 14
+  }));
+  // Filled
+  var angle = Math.PI * (1 - pct / 100);
+  var endX = cx + r * Math.cos(Math.PI - angle);
+  var endY = cy - r * Math.sin(Math.PI - angle);
+  g.appendChild(svg('path', {
+    d: 'M ' + (cx - r) + ' ' + cy + ' A ' + r + ' ' + r + ' 0 0 1 ' + endX + ' ' + endY,
+    fill: 'none', stroke: '#0d5c8f', 'stroke-width': 14, 'stroke-linecap': 'round'
+  }));
+  g.appendChild(svgText(cx, cy - 6, pct.toFixed(0) + '%', {size:'20', anchor:'middle', weight:'700', mono:true, color:'#1c2530'}));
+  g.appendChild(svgText(cx, cy + 12, label, {size:'10', anchor:'middle', mono:true}));
+  return el('div', {class:'gauge-wrap'}, g);
+}
+function loadTestsFromStandard(t, kind) {
+  var std = STANDARDS[t.standard];
+  if (!std) return;
+  if (std.appliesTo.indexOf(kind) < 0) toast(t.standard + ' is not typical for ' + kind + ', proceeding anyway', 'info');
+  t.tests = std.tests.map(function(name) { return { id: uid(), name: name, ref: t.standard, status: 'planned', notes: '' }; });
+}
+
+/* ============ BOM ============ */
+function computeBOM(p) {
+  var s = getSizing(p); if (!s) return null;
+  var L = computeLayout(p);
+  var m = p.mechanical;
+  var lines = [];
+  function add(lvl, part, spec, qty, unitCost, massEach, cat) {
+    lines.push({ lvl: lvl, part: part, spec: spec, qty: qty, unitCost: unitCost, massEach: massEach, cat: cat, total: qty * unitCost, mass: qty * massEach });
+  }
+  add(1, 'Pack assembly', p.kind + ' · ' + s.Ns + 'S ' + s.Np + 'P', 1, 0, 0, 'assembly');
+  add(2, 'Cells', s.cell.name, s.total, s.cell.cost || 0, s.cell.mass, 'cell');
+  add(2, 'Busbars', p.electrical.busbarMaterial, Math.max(0, s.total - s.Np), 0.5, 0.02, 'electrical');
+  add(2, 'Fasteners (main)', m.fasteners.mainBolt, m.fasteners.mainQty, 1.2, 0.02, 'mechanical');
+  add(2, 'Fasteners (module)', m.fasteners.moduleBolt, m.fasteners.moduleQty == null ? Math.ceil(s.total / 8) : m.fasteners.moduleQty, 0.45, 0.01, 'mechanical');
+  if (m.tray.enabled) add(2, 'Tray', m.tray.material + ' ' + m.tray.thickness + 'mm', 1, 45, estTrayMass(m, L.packW, L.packH), 'enclosure');
+  if (m.cover.enabled) add(2, 'Top cover', m.cover.type + ' ' + m.cover.thickness + 'mm', 1, 65, estCoverMass(m, L.packW, L.packH), 'enclosure');
+  if (m.insulation.enabled) add(2, 'Mica sheet', m.insulation.type, 1, 12, 0.5, 'insulation');
+  if (m.cooling.enabled) add(2, 'Cold plate', m.cooling.plateMaterial, 1, 90, 2.5, 'thermal');
+  add(2, 'Seal', m.seal.type, m.seal.length_m, 8, 0.02, 'sealing');
+  add(2, 'BMS', m.bms.type, 1, m.bms.cost, m.bms.mass_kg, 'bms');
+  add(2, 'Contactor', 'Main + precharge', m.contactor.mainQty + m.contactor.prechargeQty, m.contactor.cost, m.contactor.mass_kg, 'electrical');
+  add(2, 'Service disconnect', 'MSD', m.serviceDisconnect.qty, m.serviceDisconnect.cost, m.serviceDisconnect.mass_kg, 'electrical');
+  add(2, 'HV connectors', m.connectors.type, m.connectors.qty, m.connectors.cost, m.connectors.mass_kg, 'electrical');
+  add(2, 'Harness', 'cable', m.harness.totalLength_m, 3, m.harness.cableMass_per_m, 'harness');
+  var materialTotal = 0, cellCost = 0, totalMass = 0;
+  lines.forEach(function(l) {
+    if (l.lvl === 2) materialTotal += l.total;
+    if (l.cat === 'cell') cellCost += l.total;
+    totalMass += l.mass;
+  });
+  var b = p.bom.costBasis;
+  var laborCost = (s.total * 0.1) * b.laborRate_USD_hr;
+  var scrap = (materialTotal + laborCost) * (b.scrapPercent / 100);
+  var overhead = (materialTotal + laborCost) * (b.overheadPercent / 100);
+  return { lines: lines, s: s, layout: L, materialTotal: materialTotal, cellCost: cellCost, totalMass: totalMass,
+    laborCost: laborCost, scrap: scrap, overhead: overhead, totalCost: materialTotal + laborCost + scrap + overhead, basis: b };
+}
+function renderBOM(root) {
+  var p = getProject();
+  var bom = computeBOM(p);
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'BOM & Costing'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Hierarchical BOM with cost breakdown chart.'));
+  if (!bom) { wrap.appendChild(el('div', {class:'alert info'}, 'Complete electrical sizing first.')); root.appendChild(wrap); return; }
+  var basis = bom.basis;
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Cost basis'),
+    el('div', {class:'grid cols-3'},
+      fieldNum('Labor (USD/hr)', basis.laborRate_USD_hr, function(v) { basis.laborRate_USD_hr = v; touchProject(p); render(); }),
+      fieldNum('Overhead %', basis.overheadPercent, function(v) { basis.overheadPercent = v; touchProject(p); render(); }, '0.5'),
+      fieldNum('Scrap %', basis.scrapPercent, function(v) { basis.scrapPercent = v; touchProject(p); render(); }, '0.5'))));
+  // Cost breakdown pie
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Cost breakdown'),
+    el('div', {class:'grid cols-2'},
+      el('div', {}, buildCostPie(bom)),
+      el('div', {},
+        el('div', {class:'kv'},
+          el('span', {class:'k'}, 'Cell cost'), el('span', {class:'v'}, '$' + num(bom.cellCost, 2)),
+          el('span', {class:'k'}, 'Material total'), el('span', {class:'v'}, '$' + num(bom.materialTotal, 2)),
+          el('span', {class:'k'}, 'Labor'), el('span', {class:'v'}, '$' + num(bom.laborCost, 2)),
+          el('span', {class:'k'}, 'Scrap'), el('span', {class:'v'}, '$' + num(bom.scrap, 2)),
+          el('span', {class:'k'}, 'Overhead'), el('span', {class:'v'}, '$' + num(bom.overhead, 2)),
+          el('span', {class:'k'}, 'TOTAL'), el('span', {class:'v', style:'color:var(--accent);font-size:14px'}, '$' + num(bom.totalCost, 2)),
+          el('span', {class:'k'}, 'Mass'), el('span', {class:'v'}, num(bom.totalMass, 2) + ' kg'),
+          el('span', {class:'k'}, '$/kWh'), el('span', {class:'v'}, '$' + num(bom.totalCost / Math.max(bom.s.packEnergyKWh, 0.01), 2)))))));
+  var card = el('div', {class:'card'}, el('h3', {}, 'Bill of materials',
+    el('button', {class:'btn sm', onclick: function() { exportBOMCSV(bom, p); }}, 'Export CSV')));
+  var tree = el('div', {class:'bom-tree'});
+  tree.appendChild(el('div', {class:'row head'},
+    el('span', {}, 'Lvl'), el('span', {}, 'Part'), el('span', {}, 'Qty'),
+    el('span', {}, 'Unit $'), el('span', {}, 'Total $'), el('span', {}, 'Mass')));
+  bom.lines.forEach(function(l) {
+    if (l.lvl > 2) return;
+    tree.appendChild(el('div', {class:'row lvl' + l.lvl},
+      el('span', {}, String(l.lvl)),
+      el('span', {}, l.part, el('div', {class:'small muted', style:'font-family:var(--font)'}, l.spec)),
+      el('span', {class:'num'}, num(l.qty, 0)),
+      el('span', {class:'num'}, '$' + num(l.unitCost, 2)),
+      el('span', {class:'num'}, '$' + num(l.total, 2)),
+      el('span', {class:'num'}, num(l.mass, 2))));
+  });
+  tree.appendChild(el('div', {class:'row total'},
+    el('span', {}, ''), el('span', {}, 'TOTAL'), el('span', {}, ''), el('span', {}, ''),
+    el('span', {}, '$' + num(bom.totalCost, 2)), el('span', {}, num(bom.totalMass, 2))));
+  card.appendChild(tree);
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+}
+function buildCostPie(bom) {
+  var slices = [
+    { label: 'Cells', value: bom.cellCost, color: '#0d5c8f' },
+    { label: 'Other material', value: bom.materialTotal - bom.cellCost, color: '#5c8fb8' },
+    { label: 'Labor', value: bom.laborCost, color: '#9a6700' },
+    { label: 'Overhead', value: bom.overhead, color: '#d4a017' },
+    { label: 'Scrap', value: bom.scrap, color: '#c0392b' }
+  ].filter(function(s) { return s.value > 0; });
+  var total = slices.reduce(function(a, s) { return a + s.value; }, 0);
+  var W = 240, H = 240, cx = 120, cy = 120, r = 90, ir = 55;
+  var g = svg('svg', {width: W, height: H, viewBox: '0 0 ' + W + ' ' + H});
+  var startAngle = -Math.PI / 2;
+  slices.forEach(function(s) {
+    var sliceAngle = (s.value / total) * Math.PI * 2;
+    var endAngle = startAngle + sliceAngle;
+    var x1 = cx + r * Math.cos(startAngle), y1 = cy + r * Math.sin(startAngle);
+    var x2 = cx + r * Math.cos(endAngle), y2 = cy + r * Math.sin(endAngle);
+    var xi1 = cx + ir * Math.cos(startAngle), yi1 = cy + ir * Math.sin(startAngle);
+    var xi2 = cx + ir * Math.cos(endAngle), yi2 = cy + ir * Math.sin(endAngle);
+    var large = sliceAngle > Math.PI ? 1 : 0;
+    var path = 'M ' + x1 + ' ' + y1 + ' A ' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x2 + ' ' + y2 + ' L ' + xi2 + ' ' + yi2 + ' A ' + ir + ' ' + ir + ' 0 ' + large + ' 0 ' + xi1 + ' ' + yi1 + ' Z';
+    g.appendChild(svg('path', {d: path, fill: s.color, stroke: '#fff', 'stroke-width': 2}));
+    startAngle = endAngle;
+  });
+  // Center label
+  g.appendChild(svgText(cx, cy - 4, '$' + num(total, 0), {size:'18', anchor:'middle', weight:'700', mono:true, color:'#1c2530'}));
+  g.appendChild(svgText(cx, cy + 14, 'total', {size:'10', anchor:'middle', color:'#5a6673'}));
+  // Legend
+  var legend = el('div', {style:'margin-top:8px;display:flex;flex-direction:column;gap:3px;font-size:11px'});
+  slices.forEach(function(s) {
+    legend.appendChild(el('div', {style:'display:flex;align-items:center;gap:6px'},
+      el('span', {style:'width:10px;height:10px;background:' + s.color + ';border-radius:2px;display:inline-block'}),
+      el('span', {style:'flex:1'}, s.label),
+      el('span', {style:'font-family:var(--mono)'}, '$' + num(s.value, 0))));
+  });
+  return el('div', {}, g, legend);
+}
+function exportBOMCSV(bom, p) {
+  var rows = [['Level','Part','Spec','Qty','Unit_Cost_USD','Total_USD','Mass_kg']];
+  bom.lines.forEach(function(l) { rows.push([l.lvl, l.part, l.spec, l.qty, l.unitCost.toFixed(2), l.total.toFixed(2), l.mass.toFixed(3)]); });
+  var csv = rows.map(function(r) { return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+  download(p.name.replace(/[^\w-]+/g, '_') + '_BOM.csv', csv, 'text/csv');
+  toast('BOM exported', 'ok');
+}
+
+/* ============ Manufacturing ============ */
+function renderManufacturing(root) {
+  var p = getProject();
+  var mfg = p.manufacturing;
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Manufacturing & Assembly'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Assembly sequence, tooling, quality checks.'));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Batch'),
+    el('div', {class:'grid cols-2'},
+      fieldNum('Batch size', mfg.batchSize, function(v) { mfg.batchSize = Math.max(1, Math.round(v)); touchProject(p); render(); }))));
+  var card = el('div', {class:'card'}, el('h3', {}, 'Assembly steps',
+    el('button', {class:'btn sm', onclick: function() { mfg.steps.push({ id: uid(), step: 'New step', tool: '', duration_min: 10 }); touchProject(p); render(); }}, '+ Add')));
+  if (mfg.steps.length === 0) {
+    card.appendChild(el('div', {class:'alert info'}, 'Add steps or load a typical sequence.'));
+    card.appendChild(el('button', {class:'btn', onclick: function() {
+      var defaults = ['Receive & inspect cells','Prepare tray and insulation','Place cells into module','Laser weld / bolt busbars','Install BMS harness','Install cooling plate','Apply seal to cover','Mount top cover','Leak test (air)','Functional test (charge/discharge)','Final labelling & packaging'];
+      mfg.steps = defaults.map(function(st, i) { return { id: uid(), step: st, tool: '', duration_min: 5 + i * 2 }; });
+      touchProject(p); render();
+    }}, 'Load typical sequence'));
+  } else {
+    var sb = el('div', {});
+    sb.appendChild(el('div', {class:'step-row head'}, el('span', {}, '#'), el('span', {}, 'Step'), el('span', {}, 'Tool'), el('span', {}, 'Min')));
+    mfg.steps.forEach(function(st, i) {
+      sb.appendChild(el('div', {class:'step-row'},
+        el('span', {}, String(i + 1)),
+        el('span', {}, el('input', {type:'text', value: st.step, onchange: function(e) { st.step = e.target.value; touchProject(p); }})),
+        el('span', {}, el('input', {type:'text', value: st.tool || '', onchange: function(e) { st.tool = e.target.value; touchProject(p); }})),
+        el('span', {}, el('input', {type:'number', step:'1', value: st.duration_min, onchange: function(e) { st.duration_min = readNum(e); touchProject(p); render(); }}))));
+    });
+    card.appendChild(sb);
+    var totalMin = 0;
+    mfg.steps.forEach(function(st) { totalMin += st.duration_min || 0; });
+    card.appendChild(el('div', {class:'kv'},
+      el('span', {class:'k'}, 'Total per-pack time'), el('span', {class:'v'}, num(totalMin, 0) + ' min'),
+      el('span', {class:'k'}, 'Batch of ' + mfg.batchSize), el('span', {class:'v'}, num(totalMin * mfg.batchSize, 0) + ' min')));
+  }
+  wrap.appendChild(card);
+  root.appendChild(wrap);
+}
+
+/* ============ Reports ============ */
+function renderReports(root) {
+  var p = getProject();
+  var s = getSizing(p);
+  var bom = computeBOM(p);
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Design Review & Reports'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Summary, snapshots, exports.'));
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Project'),
+    el('div', {class:'grid cols-2'},
+      el('div', {}, el('div', {class:'small muted'}, 'Name'), el('div', {}, el('b', {}, p.name))),
+      el('div', {}, el('div', {class:'small muted'}, 'Kind'), el('div', {}, el('span', {class:'chip ' + p.kind.toLowerCase()}, p.kind))),
+      el('div', {}, el('div', {class:'small muted'}, 'Revision'), el('div', {}, 'rev ' + p.revision)),
+      el('div', {}, el('div', {class:'small muted'}, 'Updated'), el('div', {}, new Date(p.updatedAt).toLocaleString())))));
+  var checks = el('div', {class:'card'}, el('h3', {}, 'Module completion'));
+  NAV.forEach(function(item) {
+    if (item.id === 'dashboard' || item.id === 'diagnostics') return;
+    var st = viewStatus(item.id);
+    checks.appendChild(el('div', {class:'kv'},
+      el('span', {class:'k'}, item.title),
+      el('span', {class:'v ' + (st === 'done' ? 'ok' : st === 'partial' ? 'warn' : '')}, st === 'done' ? 'Complete' : st === 'partial' ? 'Partial' : 'Empty')));
+  });
+  wrap.appendChild(checks);
+  if (s) {
+    wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Key numbers'),
+      el('div', {class:'grid cols-3'},
+        stat('Configuration', s.Ns + 'S ' + s.Np + 'P'),
+        stat('Total cells', num(s.total, 0)),
+        stat('Pack energy', num(s.packEnergyKWh, 2) + ' kWh'),
+        stat('Nominal V', num(s.packNominalV, 1) + ' V'),
+        stat('Mass', num(s.packMass_kg, 1) + ' kg'),
+        stat('BOM cost', bom ? '$' + num(bom.totalCost, 2) : '—'))));
+  }
+  var revCard = el('div', {class:'card'}, el('h3', {}, 'Revision snapshots',
+    el('button', {class:'btn sm', onclick: function() {
+      p.revisionsLog.push({ id: uid(), at: nowISO(), revision: p.revision, snapshot: JSON.parse(JSON.stringify({ electrical: p.electrical, layout: p.layout, cellSelection: p.cellSelection, bms: p.bms })) });
+      touchProject(p); render(); toast('Snapshot saved', 'ok');
+    }}, 'Snapshot current')));
+  if (p.revisionsLog.length === 0) revCard.appendChild(el('div', {class:'alert info'}, 'Take a snapshot before major changes.'));
+  else {
+    for (var i = p.revisionsLog.length - 1; i >= 0; i--) {
+      (function(snap, idx) {
+        revCard.appendChild(el('div', {class:'run-row'},
+          el('span', {class:'when'}, new Date(snap.at).toLocaleString()),
+          el('span', {class:'what'}, 'rev ' + snap.revision),
+          el('button', {class:'btn sm', onclick: function() { compareRevisions(p, snap); }}, 'Compare'),
+          el('button', {class:'btn sm danger', onclick: function() { p.revisionsLog.splice(idx, 1); touchProject(p); render(); }}, '×')));
+      })(p.revisionsLog[i], i);
+    }
+  }
+  wrap.appendChild(revCard);
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Exports'),
+    el('div', {class:'flex wrap'},
+      el('button', {class:'btn', onclick: function() { exportHTMLReport(p); }}, 'Export HTML report'),
+      el('button', {class:'btn', onclick: function() { exportProject(); }}, 'Export project JSON'),
+      el('button', {class:'btn', onclick: function() { if (bom) exportBOMCSV(bom, p); }}, 'Export BOM CSV'))));
+  root.appendChild(wrap);
+}
+function compareRevisions(p, snap) {
+  var cur = { electrical: p.electrical, layout: p.layout, cellSelection: p.cellSelection, bms: p.bms };
+  var old = snap.snapshot;
+  var rows = [
+    ['Cell ID', old.cellSelection ? old.cellSelection.cellId : null, cur.cellSelection ? cur.cellSelection.cellId : null],
+    ['N_s override', old.electrical ? old.electrical.ns : null, cur.electrical ? cur.electrical.ns : null],
+    ['N_p override', old.electrical ? old.electrical.np : null, cur.electrical ? cur.electrical.np : null],
+    ['Cell spacing', old.layout ? old.layout.cellSpacing_mm : null, cur.layout ? cur.layout.cellSpacing_mm : null],
+    ['Cells/row', old.layout ? old.layout.moduleCellsPerRow : null, cur.layout ? cur.layout.moduleCellsPerRow : null],
+    ['Modules/row', old.layout ? old.layout.modulesPerRow : null, cur.layout ? cur.layout.modulesPerRow : null],
+    ['Layers', old.layout ? old.layout.layers : null, cur.layout ? cur.layout.layers : null],
+    ['BMS arch', old.bms ? old.bms.architecture : null, cur.bms ? cur.bms.architecture : null],
+    ['V channels', old.bms ? old.bms.voltageChannels : null, cur.bms ? cur.bms.voltageChannels : null],
+    ['Pack OV', old.bms ? old.bms.packOvervoltage : null, cur.bms ? cur.bms.packOvervoltage : null]
+  ];
+  var grid = el('div', {class:'compare-grid'});
+  var left = el('div', {class:'rev-card'}, el('h4', {}, 'Revision ' + snap.revision));
+  var right = el('div', {class:'rev-card'}, el('h4', {}, 'Current rev ' + p.revision));
+  rows.forEach(function(row) {
+    var label = row[0], oldV = row[1], curV = row[2];
+    left.appendChild(el('div', {class:'diff-row'}, el('span', {class:'k'}, label), el('span', {class:'v'}, String(oldV == null ? '—' : oldV))));
+    var changed = String(oldV == null ? '' : oldV) !== String(curV == null ? '' : curV);
+    right.appendChild(el('div', {class:'diff-row'}, el('span', {class:'k'}, label), el('span', {class:'v' + (changed ? ' changed' : '')}, String(curV == null ? '—' : curV))));
+  });
+  grid.appendChild(left); grid.appendChild(right);
+  openModal('Compare revisions', grid, [{ label: 'Close', class: 'btn primary' }]);
+}
+function exportHTMLReport(p) {
+  var s = getSizing(p), bom = computeBOM(p);
+  var rows = [];
+  if (s) {
+    rows.push('<tr><td>Configuration</td><td>' + s.Ns + 'S ' + s.Np + 'P</td></tr>');
+    rows.push('<tr><td>Total cells</td><td>' + s.total + '</td></tr>');
+    rows.push('<tr><td>Pack nominal voltage</td><td>' + s.packNominalV.toFixed(1) + ' V</td></tr>');
+    rows.push('<tr><td>Pack energy</td><td>' + s.packEnergyKWh.toFixed(2) + ' kWh</td></tr>');
+    rows.push('<tr><td>Cell-only mass</td><td>' + s.packMass_kg.toFixed(2) + ' kg</td></tr>');
+  }
+  if (bom) {
+    rows.push('<tr><td>Estimated BOM cost</td><td>$' + bom.totalCost.toFixed(2) + '</td></tr>');
+    rows.push('<tr><td>Total mass incl. enclosure</td><td>' + bom.totalMass.toFixed(2) + ' kg</td></tr>');
+  }
+  var moduleItems = NAV.filter(function(n) { return n.id !== 'dashboard' && n.id !== 'diagnostics'; }).map(function(n) {
+    return '<li><b>' + n.title + '</b>: ' + viewStatus(n.id) + '</li>';
+  }).join('');
+  var testHtml = p.testing.standard
+    ? '<p>Standard: <b>' + p.testing.standard + '</b></p><ul>' + p.testing.tests.map(function(t) { return '<li>' + t.name + ' — ' + t.status + '</li>'; }).join('') + '</ul>'
+    : '<p>No primary standard selected.</p>';
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + p.name + ' — Report</title>'
+    + '<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:24px auto;padding:0 16px;color:#1c2530}'
+    + 'h1{font-size:20px;border-bottom:2px solid #0d5c8f;padding-bottom:6px}'
+    + 'h2{font-size:14px;margin-top:20px;color:#0d5c8f}'
+    + 'table{border-collapse:collapse;width:100%;margin:8px 0}'
+    + 'td{border:1px solid #d8dde3;padding:5px 8px;font-size:12px}'
+    + 'tr td:first-child{background:#f0f3f6;width:40%}'
+    + '.foot{margin-top:24px;font-size:10px;color:#5a6673}</style></head>'
+    + '<body><h1>' + p.name + ' — Battery Pack Report</h1>'
+    + '<p><b>Kind:</b> ' + p.kind + ' &nbsp; <b>Revision:</b> ' + p.revision + ' &nbsp; <b>Date:</b> ' + new Date().toLocaleString() + '</p>'
+    + '<h2>Key numbers</h2><table>' + rows.join('') + '</table>'
+    + '<h2>Modules</h2><ul>' + moduleItems + '</ul>'
+    + '<h2>Test plan</h2>' + testHtml
+    + '<h2>Disclaimer</h2><p>Generated from project data at export time. Reduced-order models. Not a certification.</p>'
+    + '<div class="foot">Battery Engineering Workbench v1.4</div></body></html>';
+  download(p.name.replace(/[^\w-]+/g, '_') + '_report.html', html, 'text/html');
+  toast('Report exported', 'ok');
+}
+
+/* ============ Diagnostics ============ */
+function renderDiagnostics(root) {
+  var wrap = el('div', {class:'view'});
+  wrap.appendChild(el('h2', {class:'page-title'}, 'Diagnostics'));
+  wrap.appendChild(el('p', {class:'page-sub'}, 'Storage, browser support, data recovery.'));
+  var card = el('div', {class:'card'}, el('h3', {}, 'Environment'));
+  var rows = [
+    ['LocalStorage', hasLS() ? 'available' : 'unavailable'],
+    ['IndexedDB', hasIDB() ? 'available' : 'unavailable'],
+    ['WebGL', hasWebGL() ? 'available' : 'unavailable'],
+    ['localStorage used', estimateStorage()],
+    ['Projects', Object.keys(State.projects).length],
+    ['Cells', State.library.cells.length]
+  ];
+  rows.forEach(function(r) { card.appendChild(el('div', {class:'diag-row'}, el('span', {}, r[0]), el('span', {class:'val'}, String(r[1])))); });
+  wrap.appendChild(card);
+  wrap.appendChild(el('div', {class:'card'}, el('h3', {}, 'Data'),
+    el('div', {class:'flex wrap'},
+      el('button', {class:'btn', onclick: function() { download('bew_projects_backup.json', JSON.stringify(State.projects, null, 2)); }}, 'Export all projects'),
+      el('button', {class:'btn', onclick: function() { download('bew_library_backup.json', JSON.stringify(State.library, null, 2)); }}, 'Export library'),
+      el('button', {class:'btn danger', onclick: function() {
+        if (!confirm('Clear ALL local data?')) return;
+        try { localStorage.removeItem(DB_KEY); localStorage.removeItem(LIB_KEY); localStorage.removeItem(APP_KEY); } catch(e){}
+        location.reload();
+      }}, 'Clear local data'))));
+  root.appendChild(wrap);
+}
+function hasLS() { try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); return true; } catch (e) { return false; } }
+function hasIDB() { return !!window.indexedDB; }
+function hasWebGL() { try { var c = document.createElement('canvas'); return !!(c.getContext('webgl') || c.getContext('experimental-webgl')); } catch (e) { return false; } }
+function estimateStorage() {
+  try { var t = 0; for (var k in localStorage) if (Object.prototype.hasOwnProperty.call(localStorage, k)) t += (localStorage.getItem(k) || '').length * 2; return (t / 1024).toFixed(1) + ' KB'; }
+  catch (e) { return 'unknown'; }
+}
+
+/* ============ Modal ============ */
+function openModal(title, bodyEl, buttons) {
+  var m = $('#modal'); if (!m) return;
+  m.innerHTML = '';
+  m.appendChild(el('header', {}, el('h3', {}, title), el('button', {class:'x', onclick: closeModal}, '×')));
+  m.appendChild(el('div', {class:'body'}, bodyEl));
+  var footer = el('footer', {});
+  (buttons || []).forEach(function(b) {
+    footer.appendChild(el('button', {class: b.class || 'btn', onclick: function() { if (b.onclick) b.onclick(); else closeModal(); }}, b.label));
+  });
+  m.appendChild(footer);
+  var bg = $('#modalBg'); if (bg) bg.classList.add('show');
+}
+function closeModal() { var bg = $('#modalBg'); if (bg) bg.classList.remove('show'); }
+
+/* ============ Boot ============ */
+function boot() {
+  var bg = $('#modalBg');
+  if (bg) bg.addEventListener('click', function(e) { if (e.target.id === 'modalBg') closeModal(); });
+  if (State.app.lastProjectId && State.projects[State.app.lastProjectId]) {
+    State.currentProjectId = State.app.lastProjectId;
+    State.currentView = 'architecture';
+  }
+  render();
+  setInterval(function() { State.app.lastProjectId = State.currentProjectId; saveApp(State.app); }, 3000);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+else boot();
+</script>
+</body>
+</html>
